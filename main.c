@@ -1,6 +1,8 @@
 #include "raylib.h"
+#include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
-#define PLAYERS_NUM 2
+#define PLAYERS_NUM 3
 
 typedef struct {
   int pos_x, pos_y;
@@ -32,34 +34,69 @@ Player *initializePlayers() {
 }
 
 void handleInput(Player *players, int speed) {
+
   for (int i = 0; i < PLAYERS_NUM; i++) {
+    Vector2 direction = {0, 0};
 
+    // Up
     if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][0])) {
-      players[i].pos_y -= speed;
+      direction.y = -1;
     }
 
+    // Left
     if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][1])) {
-      players[i].pos_x -= speed;
+      direction.x = -1;
     }
 
+    // Down
     if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][2])) {
-      players[i].pos_y += speed;
+      direction.y = 1;
     }
 
+    // Right
     if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][3])) {
-      players[i].pos_x += speed;
+      direction.x = 1;
     }
+
+    // Normalizing direction
+    float magnitude =
+        sqrtf(direction.x * direction.x + direction.y * direction.y);
+    if (magnitude != 0) {
+      direction = (Vector2){direction.x / magnitude, direction.y / magnitude};
+    }
+
+    Vector2 velocity = {direction.x * speed, direction.y * speed};
+
+    players[i].pos_x += velocity.x;
+    players[i].pos_y += velocity.y;
   }
 }
 
-// void drawWorld(RenderTexture *renderTexture) {
-//   int w = renderTexture->texture.width;
-//   int h = renderTexture->texture.height;
+typedef struct {
+  int centerX, centerY, radius;
+  Color color;
+} Circle;
 
-//   for (int i = 0; i < 10; i++) {
+Circle *initCircles(int n, int bounds) {
 
-//   }
-// }
+  Circle *circles = calloc(n, sizeof(Circle));
+
+  for (int i = 0; i < n; i++) {
+    circles[i].centerX = (rand() % (2 * GetScreenWidth())) - GetScreenWidth();
+    circles[i].centerY = (rand() % (2 * GetScreenHeight())) - GetScreenHeight();
+    circles[i].radius = rand() % 5;
+    circles[i].color = WHITE;
+  }
+
+  return circles;
+}
+
+void drawCircles(Circle *circles, int n) {
+  for (int i = 0; i < n; i++) {
+    DrawCircle(circles[i].centerX, circles[i].centerY, circles[i].radius,
+               circles[i].color);
+  }
+}
 
 int main(int argc, char **args) {
 
@@ -86,8 +123,11 @@ int main(int argc, char **args) {
   for (int i = 0; i < PLAYERS_NUM; i++) {
     cameras[i].zoom = 1.0;
     cameras[i].offset = (Vector2){(int)(renderTextures[i].texture.width / 2),
-                                  (int)(renderTextures[i].texture.width / 2)};
+                                  (int)(renderTextures[i].texture.height / 2)};
   }
+
+  int n = 2000;
+  Circle *circles = initCircles(n, 2);
 
   SetTargetFPS(60);
 
@@ -98,12 +138,11 @@ int main(int argc, char **args) {
       BeginTextureMode(renderTextures[i]);
 
       cameras[i].target =
-          (Vector2){(int)(players[i].pos_x - players[i].size / 2),
-                    (int)(players[i].pos_y - players[i].size / 2)};
-      ClearBackground(WHITE);
+          (Vector2){(int)(players[i].pos_x), (int)(players[i].pos_y)};
+      ClearBackground(BLACK);
 
       BeginMode2D(cameras[i]);
-      // drawWorld(&renderTextures[i]);
+      drawCircles(circles, n);
 
       for (int j = 0; j < PLAYERS_NUM; j++) {
         DrawRectangle(players[j].pos_x, players[j].pos_y, players[j].size,
@@ -123,6 +162,13 @@ int main(int argc, char **args) {
                      (Vector2){i * (int)(GetScreenWidth() / PLAYERS_NUM), 0},
                      WHITE);
     }
+
+    // Drawing line between screens
+    for (int i = 1; i < PLAYERS_NUM; i++) {
+      DrawRectangle(i * (int)(GetScreenWidth() / PLAYERS_NUM) - 2, 0, 4,
+                    GetScreenHeight(), WHITE);
+    }
+
     EndDrawing();
   }
 
