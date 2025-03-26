@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#define PLAYERS_NUM 3
+#define PLAYERS_NUM 2
 
 typedef struct {
   int pos_x, pos_y;
@@ -24,10 +24,10 @@ Player *initializePlayers() {
   Player *players = (Player *)calloc(sizeof(Player), PLAYERS_NUM);
 
   for (int i = 0; i < PLAYERS_NUM; i++) {
-    players[i].pos_x = 0;
-    players[i].pos_y = 0;
     players[i].size = 50;
     players[i].color = colors[i % PLAYERS_NUM];
+    players[i].pos_x = 0 + i * (20 + players[i].size);
+    players[i].pos_y = 0;
   }
 
   return players;
@@ -168,6 +168,8 @@ int main(int argc, char **args) {
       DrawRectangle(i * (int)(GetScreenWidth() / PLAYERS_NUM) - 2, 0, 4,
                     GetScreenHeight(), WHITE);
     }
+
+    DrawFPS(0, 0);
 
     EndDrawing();
   }
