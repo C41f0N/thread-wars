@@ -1,5 +1,65 @@
 #include "raylib.h"
-#include <stdio.h>
+#include <stdlib.h>
+#define PLAYERS_NUM 2
+
+typedef struct {
+  int pos_x, pos_y;
+  int size;
+  Color color;
+} Player;
+
+Color colors[] = {RED, YELLOW, BLUE, GREEN};
+
+/*
+    Stores keymaps for each player
+    Sequence: Up, Left, Down, Right
+*/
+int controls[3][4] = {{KEY_W, KEY_A, KEY_S, KEY_D},
+                      {KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT},
+                      {KEY_T, KEY_F, KEY_G, KEY_H}};
+
+Player *initializePlayers() {
+  Player *players = (Player *)calloc(sizeof(Player), PLAYERS_NUM);
+
+  for (int i = 0; i < PLAYERS_NUM; i++) {
+    players[i].pos_x = 0;
+    players[i].pos_y = 0;
+    players[i].size = 50;
+    players[i].color = colors[i % PLAYERS_NUM];
+  }
+
+  return players;
+}
+
+void handleInput(Player *players, int speed) {
+  for (int i = 0; i < PLAYERS_NUM; i++) {
+
+    if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][0])) {
+      players[i].pos_y -= speed;
+    }
+
+    if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][1])) {
+      players[i].pos_x -= speed;
+    }
+
+    if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][2])) {
+      players[i].pos_y += speed;
+    }
+
+    if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][3])) {
+      players[i].pos_x += speed;
+    }
+  }
+}
+
+// void drawWorld(RenderTexture *renderTexture) {
+//   int w = renderTexture->texture.width;
+//   int h = renderTexture->texture.height;
+
+//   for (int i = 0; i < 10; i++) {
+
+//   }
+// }
 
 int main(int argc, char **args) {
 
@@ -9,28 +69,65 @@ int main(int argc, char **args) {
     ToggleFullscreen();
   }
 
+  Player *players = initializePlayers();
+
+  // Init render textures
+  RenderTexture2D *renderTextures =
+      calloc(sizeof(RenderTexture2D), PLAYERS_NUM);
+
+  for (int i = 0; i < PLAYERS_NUM; i++) {
+    renderTextures[i] =
+        LoadRenderTexture(GetScreenWidth() / PLAYERS_NUM, GetScreenHeight());
+  }
+
+  // init cameras
+  Camera2D *cameras = calloc(sizeof(Camera2D), PLAYERS_NUM);
+
+  for (int i = 0; i < PLAYERS_NUM; i++) {
+    cameras[i].zoom = 1.0;
+    cameras[i].offset = (Vector2){(int)(renderTextures[i].texture.width / 2),
+                                  (int)(renderTextures[i].texture.width / 2)};
+  }
+
   SetTargetFPS(60);
-  char text[] = "Thread Wars";
-  int fontSize = 40;
 
   while (!WindowShouldClose()) {
+    handleInput(players, 4);
+
+    for (int i = 0; i < PLAYERS_NUM; i++) {
+      BeginTextureMode(renderTextures[i]);
+
+      cameras[i].target =
+          (Vector2){(int)(players[i].pos_x - players[i].size / 2),
+                    (int)(players[i].pos_y - players[i].size / 2)};
+      ClearBackground(WHITE);
+
+      BeginMode2D(cameras[i]);
+      // drawWorld(&renderTextures[i]);
+
+      for (int j = 0; j < PLAYERS_NUM; j++) {
+        DrawRectangle(players[j].pos_x, players[j].pos_y, players[j].size,
+                      players[j].size, players[j].color);
+      }
+
+      EndMode2D();
+      EndTextureMode();
+    }
+
     BeginDrawing();
-    ClearBackground(WHITE);
-
-    if (IsKeyDown(KEY_DOWN)) {
-      fontSize--;
+    ClearBackground(BLACK);
+    for (int i = 0; i < PLAYERS_NUM; i++) {
+      DrawTextureRec(renderTextures[i].texture,
+                     (Rectangle){0, 0, renderTextures[i].texture.width,
+                                 -renderTextures[i].texture.height},
+                     (Vector2){i * (int)(GetScreenWidth() / PLAYERS_NUM), 0},
+                     WHITE);
     }
-
-    if (IsKeyDown(KEY_UP)) {
-      fontSize++;
-    }
-
-    DrawText(text, GetScreenWidth() / 2 - MeasureText(text, fontSize) / 2,
-             GetScreenHeight() / 2 - fontSize / 2, fontSize, BLACK);
-
-    DrawFPS(0, 0);
-
     EndDrawing();
+  }
+
+  for (int i = 0; i < PLAYERS_NUM; i++) {
+    UnloadRenderTexture(renderTextures[i]);
   }
 
   CloseWindow();
