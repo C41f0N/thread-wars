@@ -3,11 +3,21 @@
 
 // Player Struct
 typedef struct {
-  int pos_x, pos_y;
+  Vector2 position;
+  int speed;
   int size;
   int health;
   Color color;
 } Player;
+
+// Enemy Struct
+typedef struct {
+  Vector2 position;
+  int speed;
+  int size;
+  int health;
+  Color color;
+} Enemy;
 
 // Viewport Struct
 typedef struct {
