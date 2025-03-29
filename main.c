@@ -1,6 +1,7 @@
 #include "lib/models.h"
 #include "lib/vector_ops.h"
 #include "raylib.h"
+#include <limits.h>
 #include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -8,9 +9,12 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define PLAYERS_NUM 2
+#define PLAYERS_NUM 3
 
 bool quitting = false;
+
+int frameCount = 0;
+pthread_mutex_t frameCountMutex;
 
 /*
     Stores keymaps for each player
@@ -27,10 +31,17 @@ Player *initializePlayers() {
 
   for (int i = 0; i < PLAYERS_NUM; i++) {
     players[i].size = 50;
-    players[i].speed = 0.01;
+    players[i].speed = 10;
     // players[i].speed = 10;
     players[i].color = playerColors[i % PLAYERS_NUM];
     players[i].position = (Vector2){0 + i * (20 + players[i].size), 0};
+
+    // Initializing mutexes
+    for (int j = 0; j < PLAYERS_NUM; j++) {
+      if (pthread_mutex_init(&players[j].mutex, NULL)) {
+        exit(0);
+      };
+    }
   }
 
   return players;
@@ -52,6 +63,45 @@ Enemy *initializeEnemies(int numEnemies) {
   return enemies;
 }
 
+// Function to create and initialize viewports
+Viewport *initializeViewports(int numPlayers, Player *players) {
+
+  // Allocating in memory
+  RenderTexture2D *renderTextures = calloc(sizeof(RenderTexture2D), numPlayers);
+  Camera2D *cameras = calloc(sizeof(Camera2D), numPlayers);
+  Viewport *viewports = calloc(numPlayers, sizeof(Viewport));
+
+  // Initializing semaphores, setting the first one as active
+  sem_init(&viewports[0].inputSemaphore, 0, 1);
+
+  // Initializing the rest as inactive
+  for (int i = 1; i < numPlayers; i++) {
+    sem_init(&viewports[i].inputSemaphore, 0, 0);
+  }
+
+  for (int i = 0; i < numPlayers; i++) {
+    // Creating render textures
+    renderTextures[i] =
+        LoadRenderTexture(GetScreenWidth() / numPlayers, GetScreenHeight());
+
+    // Setting up cameras
+    cameras[i].zoom = 1.0;
+    cameras[i].offset = (Vector2){(int)(renderTextures[i].texture.width / 2),
+                                  (int)(renderTextures[i].texture.height / 2)};
+
+    // Setting a render texture to viewport
+    viewports[i].renderTexture = &renderTextures[i];
+
+    // Setting a camera to viewport
+    viewports[i].camera = &cameras[i];
+
+    // Setting a player to viewport
+    viewports[i].player = &players[i];
+  }
+
+  return viewports;
+}
+
 void drawEnemies(Enemy *enemies, int numEnemies) {
   // Drawing all enemies
   for (int i = 0; i < numEnemies; i++) {
@@ -65,11 +115,12 @@ void drawEnemies(Enemy *enemies, int numEnemies) {
 void updateEnemies(Enemy *enemies, int numEnemies, Player *players,
                    int numPlayers) {
   for (int i = 0; i < numEnemies; i++) {
-    Player *closestPlayer = &players[0];
-    float shortestDistance =
-        getDistanceBetweenVectors(enemies[i].position, closestPlayer->position);
+    Player *closestPlayer = NULL;
+    float shortestDistance = INT_MAX;
 
-    for (int j = 1; j < numPlayers; j++) {
+    for (int j = 0; j < numPlayers; j++) {
+      pthread_mutex_lock(&players[j].mutex);
+
       float distance =
           getDistanceBetweenVectors(enemies[i].position, players[j].position);
 
@@ -77,6 +128,7 @@ void updateEnemies(Enemy *enemies, int numEnemies, Player *players,
         shortestDistance = distance;
         closestPlayer = &players[j];
       }
+      pthread_mutex_unlock(&players[j].mutex);
     };
 
     if (shortestDistance < (float)closestPlayer->size / 2) {
@@ -123,63 +175,76 @@ void *handleInput(void *arg) {
   ViewportThreadArgument *arguments = (ViewportThreadArgument *)arg;
   Viewport *viewports = arguments->viewports;
   int viewportIndex = arguments->viewportIndex;
+  int localFrameCount = -1;
 
   while (true) { // Wait for current semaphore to process
     sem_wait(&viewports[viewportIndex].inputSemaphore);
 
-    // Quit and let others quit (by giving them control) if quitting
-    if (quitting) {
+    pthread_mutex_lock(&frameCountMutex);
+    int x = frameCount;
+    pthread_mutex_unlock(&frameCountMutex);
+
+    if (localFrameCount == x) {
+      sem_post(&viewports[(viewportIndex + 1) % PLAYERS_NUM].inputSemaphore);
+    } else {
+      localFrameCount = x;
+
+      // Quit and let others quit (by giving them control) if quitting
+      if (quitting) {
+        sem_post(&viewports[(viewportIndex + 1) % PLAYERS_NUM].inputSemaphore);
+      }
+
+      Vector2 direction = {0, 0};
+
+      // Up
+      if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][0])) {
+        direction.y = -1;
+      }
+
+      // Left
+      if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][1])) {
+        direction.x = -1;
+      }
+
+      // Down
+      if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][2])) {
+        direction.y = 1;
+      }
+
+      // Right
+      if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][3])) {
+        direction.x = 1;
+      }
+
+      // Zoom In
+      if (IsKeyPressed(KEY_EQUAL)) {
+        viewports[viewportIndex].camera->zoom += 0.25;
+      }
+
+      // Zoom Out
+      if (IsKeyPressed(KEY_MINUS)) {
+        viewports[viewportIndex].camera->zoom -= 0.25;
+      }
+
+      // Calculating unit vector (direction) of movement
+      float magnitude =
+          sqrtf(direction.x * direction.x + direction.y * direction.y);
+      if (magnitude != 0) {
+        direction = (Vector2){direction.x / magnitude, direction.y / magnitude};
+      }
+
+      // Multiplying direction with speed to get velocity
+      Vector2 velocity = {direction.x * viewports[viewportIndex].player->speed,
+                          direction.y * viewports[viewportIndex].player->speed};
+
+      // Moving the player via velocity
+      pthread_mutex_lock(&viewports[viewportIndex].player->mutex);
+      viewports[viewportIndex].player->position.x += velocity.x;
+      viewports[viewportIndex].player->position.y += velocity.y;
+      pthread_mutex_unlock(&viewports[viewportIndex].player->mutex);
+
       sem_post(&viewports[(viewportIndex + 1) % PLAYERS_NUM].inputSemaphore);
     }
-
-    Vector2 direction = {0, 0};
-
-    // Up
-    if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][0])) {
-      direction.y = -1;
-    }
-
-    // Left
-    if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][1])) {
-      direction.x = -1;
-    }
-
-    // Down
-    if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][2])) {
-      direction.y = 1;
-    }
-
-    // Right
-    if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][3])) {
-      direction.x = 1;
-    }
-
-    // Zoom In
-    if (IsKeyPressed(KEY_EQUAL)) {
-      viewports[viewportIndex].camera->zoom += 0.25;
-    }
-
-    // Zoom Out
-    if (IsKeyPressed(KEY_MINUS)) {
-      viewports[viewportIndex].camera->zoom -= 0.25;
-    }
-
-    // Calculating unit vector (direction) of movement
-    float magnitude =
-        sqrtf(direction.x * direction.x + direction.y * direction.y);
-    if (magnitude != 0) {
-      direction = (Vector2){direction.x / magnitude, direction.y / magnitude};
-    }
-
-    // Multiplying direction with speed to get velocity
-    Vector2 velocity = {direction.x * viewports[viewportIndex].player->speed,
-                        direction.y * viewports[viewportIndex].player->speed};
-
-    // Moving the player via velocity
-    viewports[viewportIndex].player->position.x += velocity.x;
-    viewports[viewportIndex].player->position.y += velocity.y;
-
-    sem_post(&viewports[(viewportIndex + 1) % PLAYERS_NUM].inputSemaphore);
   }
 }
 
@@ -210,6 +275,17 @@ void drawCircles(Circle *circles, int circleNum) {
   }
 }
 
+void drawPlayers(Player *players, int numPlayers) {
+  for (int i = 0; i < PLAYERS_NUM; i++) {
+    pthread_mutex_lock(&players[i].mutex);
+    DrawRectangleRounded((Rectangle){players[i].position.x,
+                                     players[i].position.y, players[i].size,
+                                     players[i].size},
+                         0.5, 1, players[i].color);
+    pthread_mutex_unlock(&players[i].mutex);
+  }
+}
+
 void draw(Viewport *viewports, Player *players, Circle *circles, int circleNum,
           Enemy *enemies, int numEnemies) {
 
@@ -217,8 +293,10 @@ void draw(Viewport *viewports, Player *players, Circle *circles, int circleNum,
   for (int i = 0; i < PLAYERS_NUM; i++) {
 
     // Updating camera to follow player
+    pthread_mutex_lock(&players[i].mutex);
     viewports[i].camera->target =
         (Vector2){(int)(players[i].position.x), (int)(players[i].position.y)};
+    pthread_mutex_unlock(&players[i].mutex);
 
     // Setting to draw on the viewport's RenderTexture
     BeginTextureMode(*viewports[i].renderTexture);
@@ -236,14 +314,7 @@ void draw(Viewport *viewports, Player *players, Circle *circles, int circleNum,
     drawEnemies(enemies, numEnemies);
 
     // Drawing all players
-    for (int j = 0; j < PLAYERS_NUM; j++) {
-      // DrawRectangle(players[j].pos_x, players[j].pos_y, players[j].size,
-      //               players[j].size, players[j].color);
-      DrawRectangleRounded((Rectangle){players[j].position.x,
-                                       players[j].position.y, players[j].size,
-                                       players[j].size},
-                           0.5, 1, players[j].color);
-    }
+    drawPlayers(players, PLAYERS_NUM);
 
     EndMode2D();
     EndTextureMode();
@@ -301,6 +372,8 @@ int main(int argc, char **args) {
   Enemy *enemies = initializeEnemies(numEnemies);
   Viewport *viewports = initializeViewports(PLAYERS_NUM, players);
 
+  pthread_mutex_init(&frameCountMutex, NULL);
+
   SetTargetFPS(60);
 
   int circleNum = 30;
@@ -344,6 +417,9 @@ int main(int argc, char **args) {
     }
 
     EndDrawing();
+    pthread_mutex_lock(&frameCountMutex);
+    frameCount++;
+    pthread_mutex_unlock(&frameCountMutex);
   }
 
   killViewports(viewports);
