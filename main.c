@@ -74,6 +74,10 @@ void updateEnemies(Enemy *enemies, int numEnemies, Player *players,
       }
     };
 
+    if (shortestDistance < (float)closestPlayer->size / 2) {
+      continue;
+    }
+
     // Getting direction to the closest player
     Vector2 direction =
         getDirectionVector2s(enemies[i].position, closestPlayer->position);
@@ -99,8 +103,6 @@ void updateEnemies(Enemy *enemies, int numEnemies, Player *players,
 
         enemies[i].position.x += direction.x * (enemies[i].speed + 1);
         enemies[i].position.y += direction.y * (enemies[i].speed + 1);
-
-        break;
       }
     }
     // Undo the move made earlier if colliding
@@ -111,7 +113,7 @@ void updateEnemies(Enemy *enemies, int numEnemies, Player *players,
   }
 }
 
-void handleInput(Player *players) {
+void handleInput(Viewport *viewport) {
 
   for (int i = 0; i < PLAYERS_NUM; i++) {
     Vector2 direction = {0, 0};
@@ -136,6 +138,16 @@ void handleInput(Player *players) {
       direction.x = 1;
     }
 
+    // Zoom In
+    if (IsKeyPressed(KEY_EQUAL)) {
+      viewport[i].camera->zoom += 0.25;
+    }
+
+    // Zoom Out
+    if (IsKeyPressed(KEY_MINUS)) {
+      viewport[i].camera->zoom -= 0.25;
+    }
+
     // Calculating unit vector (direction) of movement
     float magnitude =
         sqrtf(direction.x * direction.x + direction.y * direction.y);
@@ -144,12 +156,12 @@ void handleInput(Player *players) {
     }
 
     // Multiplying direction with speed to get velocity
-    Vector2 velocity = {direction.x * players[i].speed,
-                        direction.y * players[i].speed};
+    Vector2 velocity = {direction.x * viewport[i].player->speed,
+                        direction.y * viewport[i].player->speed};
 
     // Moving the player via velocity
-    players[i].position.x += velocity.x;
-    players[i].position.y += velocity.y;
+    viewport[i].player->position.x += velocity.x;
+    viewport[i].player->position.y += velocity.y;
   }
 }
 
@@ -258,7 +270,7 @@ int main(int argc, char **args) {
     ToggleFullscreen();
   }
 
-  int numEnemies = 50;
+  int numEnemies = 1000;
 
   Player *players = initializePlayers();
   Enemy *enemies = initializeEnemies(numEnemies);
@@ -271,7 +283,7 @@ int main(int argc, char **args) {
 
   while (!WindowShouldClose()) {
     // Handling Player Input (Should be done as threads later on)
-    handleInput(players);
+    handleInput(viewports);
     updateEnemies(enemies, numEnemies, players, PLAYERS_NUM);
 
     // Drawing everything to screen
