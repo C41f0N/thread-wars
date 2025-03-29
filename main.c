@@ -2,11 +2,15 @@
 #include "lib/vector_ops.h"
 #include "raylib.h"
 #include <math.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
 #define PLAYERS_NUM 2
+
+bool quitting = false;
 
 /*
     Stores keymaps for each player
@@ -23,7 +27,8 @@ Player *initializePlayers() {
 
   for (int i = 0; i < PLAYERS_NUM; i++) {
     players[i].size = 50;
-    players[i].speed = 6;
+    players[i].speed = 0.01;
+    // players[i].speed = 10;
     players[i].color = playerColors[i % PLAYERS_NUM];
     players[i].position = (Vector2){0 + i * (20 + players[i].size), 0};
   }
@@ -113,39 +118,50 @@ void updateEnemies(Enemy *enemies, int numEnemies, Player *players,
   }
 }
 
-void handleInput(Viewport *viewport) {
+void *handleInput(void *arg) {
 
-  for (int i = 0; i < PLAYERS_NUM; i++) {
+  ViewportThreadArgument *arguments = (ViewportThreadArgument *)arg;
+  Viewport *viewports = arguments->viewports;
+  int viewportIndex = arguments->viewportIndex;
+
+  while (true) { // Wait for current semaphore to process
+    sem_wait(&viewports[viewportIndex].inputSemaphore);
+
+    // Quit and let others quit (by giving them control) if quitting
+    if (quitting) {
+      sem_post(&viewports[(viewportIndex + 1) % PLAYERS_NUM].inputSemaphore);
+    }
+
     Vector2 direction = {0, 0};
 
     // Up
-    if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][0])) {
+    if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][0])) {
       direction.y = -1;
     }
 
     // Left
-    if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][1])) {
+    if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][1])) {
       direction.x = -1;
     }
 
     // Down
-    if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][2])) {
+    if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][2])) {
       direction.y = 1;
     }
 
     // Right
-    if (IsKeyDown(controls[i % (int)(sizeof(controls) / 4)][3])) {
+    if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][3])) {
       direction.x = 1;
     }
 
     // Zoom In
     if (IsKeyPressed(KEY_EQUAL)) {
-      viewport[i].camera->zoom += 0.25;
+      viewports[viewportIndex].camera->zoom += 0.25;
     }
 
     // Zoom Out
     if (IsKeyPressed(KEY_MINUS)) {
-      viewport[i].camera->zoom -= 0.25;
+      viewports[viewportIndex].camera->zoom -= 0.25;
     }
 
     // Calculating unit vector (direction) of movement
@@ -156,12 +172,14 @@ void handleInput(Viewport *viewport) {
     }
 
     // Multiplying direction with speed to get velocity
-    Vector2 velocity = {direction.x * viewport[i].player->speed,
-                        direction.y * viewport[i].player->speed};
+    Vector2 velocity = {direction.x * viewports[viewportIndex].player->speed,
+                        direction.y * viewports[viewportIndex].player->speed};
 
     // Moving the player via velocity
-    viewport[i].player->position.x += velocity.x;
-    viewport[i].player->position.y += velocity.y;
+    viewports[viewportIndex].player->position.x += velocity.x;
+    viewports[viewportIndex].player->position.y += velocity.y;
+
+    sem_post(&viewports[(viewportIndex + 1) % PLAYERS_NUM].inputSemaphore);
   }
 }
 
@@ -255,9 +273,16 @@ void draw(Viewport *viewports, Player *players, Circle *circles, int circleNum,
 }
 
 void killViewports(Viewport *viewports) {
-  // Unloading all render textures out of the GPU
+  quitting = true;
   for (int i = 0; i < PLAYERS_NUM; i++) {
+    // Join all threads
+    // pthread_join(viewports[i].thread, NULL);
+
+    // Unloading all render textures out of the GPU
     UnloadRenderTexture(*viewports[i].renderTexture);
+
+    // Destroy semaphores
+    sem_destroy(&viewports[i].inputSemaphore);
   }
 }
 
@@ -283,6 +308,17 @@ int main(int argc, char **args) {
 
   bool paused = false;
 
+  // Initializing viewport threads
+
+  // Creating viewport threads
+  for (int i = 0; i < PLAYERS_NUM; i++) {
+    ViewportThreadArgument *args = malloc(sizeof(ViewportThreadArgument));
+    args->viewportIndex = i;
+    args->viewports = viewports;
+
+    pthread_create(&viewports[i].thread, NULL, handleInput, (void *)args);
+  }
+
   while (!WindowShouldClose()) {
 
     // Pausing
@@ -290,9 +326,8 @@ int main(int argc, char **args) {
       paused = !paused;
     }
 
-    // Handling Player Input (Should be done as threads later on)
+    // Update
     if (!paused) {
-      handleInput(viewports);
       updateEnemies(enemies, numEnemies, players, PLAYERS_NUM);
     }
 
