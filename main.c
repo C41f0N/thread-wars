@@ -231,7 +231,7 @@ void draw(Viewport *viewports, Player *players, Circle *circles, int circleNum,
     EndTextureMode();
   }
 
-  BeginDrawing();
+  // BeginDrawing();
   ClearBackground(BLACK);
 
   // Drawing the prepared viewports to a single screen sized rectangle
@@ -251,7 +251,7 @@ void draw(Viewport *viewports, Player *players, Circle *circles, int circleNum,
 
   DrawFPS(0, 0);
 
-  EndDrawing();
+  // EndDrawing();
 }
 
 void killViewports(Viewport *viewports) {
@@ -289,13 +289,26 @@ int main(int argc, char **args) {
     if (IsKeyPressed(KEY_P)) {
       paused = !paused;
     }
+
     // Handling Player Input (Should be done as threads later on)
     if (!paused) {
       handleInput(viewports);
       updateEnemies(enemies, numEnemies, players, PLAYERS_NUM);
     }
+
+    BeginDrawing();
     // Drawing everything to screen
     draw(viewports, players, circles, circleNum, enemies, numEnemies);
+
+    if (paused) {
+      DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
+      char text[] = "PAUSED";
+      int fontSize = GetScreenHeight() * 0.05;
+      DrawText(text, GetScreenWidth() / 2 - MeasureText(text, fontSize) / 2,
+               GetScreenHeight() / 2 - fontSize / 2, fontSize, WHITE);
+    }
+
+    EndDrawing();
   }
 
   killViewports(viewports);
