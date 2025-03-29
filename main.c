@@ -9,8 +9,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define PLAYERS_NUM 3
-
 bool quitting = false;
 
 int frameCount = 0;
@@ -24,65 +22,63 @@ int controls[3][4] = {{KEY_W, KEY_A, KEY_S, KEY_D},
                       {KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT},
                       {KEY_T, KEY_F, KEY_G, KEY_H}};
 
-Player *initializePlayers() {
+void initializePlayers(Game *game) {
   Color playerColors[] = {YELLOW, BLUE, GREEN, PINK};
 
-  Player *players = (Player *)calloc(sizeof(Player), PLAYERS_NUM);
+  game->players = (Player *)calloc(sizeof(Player), game->playerCount);
 
-  for (int i = 0; i < PLAYERS_NUM; i++) {
-    players[i].size = 50;
-    players[i].speed = 10;
-    // players[i].speed = 10;
-    players[i].color = playerColors[i % PLAYERS_NUM];
-    players[i].position = (Vector2){0 + i * (20 + players[i].size), 0};
+  for (int i = 0; i < game->playerCount; i++) {
+    game->players[i].size = 50;
+    game->players[i].speed = 10;
+    // game->players[i].speed = 10;
+    game->players[i].color = playerColors[i % game->playerCount];
+    game->players[i].position =
+        (Vector2){0 + i * (20 + game->players[i].size), 0};
 
     // Initializing mutexes
-    for (int j = 0; j < PLAYERS_NUM; j++) {
-      if (pthread_mutex_init(&players[j].mutex, NULL)) {
+    for (int j = 0; j < game->playerCount; j++) {
+      if (pthread_mutex_init(&game->players[j].mutex, NULL)) {
         exit(0);
       };
     }
   }
-
-  return players;
 }
 
-Enemy *initializeEnemies(int numEnemies) {
-  Enemy *enemies = calloc(numEnemies, sizeof(Enemy));
+void initializeEnemies(Game *game) {
+  game->enemies = calloc(game->enemyCount, sizeof(Enemy));
 
-  int range = (int)(GetScreenWidth() / PLAYERS_NUM);
+  int range = (int)(GetScreenWidth() / game->playerCount);
 
-  for (int i = 0; i < numEnemies; i++) {
-    enemies[i].size = 30;
-    enemies[i].color = RED;
-    enemies[i].speed = 1 + (int)((rand() % 50) / 10);
-    enemies[i].position = (Vector2){((rand() % range) - (float)range / 2),
-                                    (rand() % range) - (float)range / 2};
+  for (int i = 0; i < game->enemyCount; i++) {
+    game->enemies[i].size = 30;
+    game->enemies[i].color = RED;
+    game->enemies[i].speed = 1 + (int)((rand() % 50) / 10);
+    game->enemies[i].position = (Vector2){((rand() % range) - (float)range / 2),
+                                          (rand() % range) - (float)range / 2};
   }
-
-  return enemies;
 }
 
 // Function to create and initialize viewports
-Viewport *initializeViewports(int numPlayers, Player *players) {
+void initializeViewports(Game *game) {
 
   // Allocating in memory
-  RenderTexture2D *renderTextures = calloc(sizeof(RenderTexture2D), numPlayers);
-  Camera2D *cameras = calloc(sizeof(Camera2D), numPlayers);
-  Viewport *viewports = calloc(numPlayers, sizeof(Viewport));
+  RenderTexture2D *renderTextures =
+      calloc(sizeof(RenderTexture2D), game->playerCount);
+  Camera2D *cameras = calloc(sizeof(Camera2D), game->playerCount);
+  game->viewports = calloc(game->playerCount, sizeof(Viewport));
 
   // Initializing semaphores, setting the first one as active
-  sem_init(&viewports[0].inputSemaphore, 0, 1);
+  sem_init(&game->viewports[0].inputSemaphore, 0, 1);
 
   // Initializing the rest as inactive
-  for (int i = 1; i < numPlayers; i++) {
-    sem_init(&viewports[i].inputSemaphore, 0, 0);
+  for (int i = 1; i < game->playerCount; i++) {
+    sem_init(&game->viewports[i].inputSemaphore, 0, 0);
   }
 
-  for (int i = 0; i < numPlayers; i++) {
+  for (int i = 0; i < game->playerCount; i++) {
     // Creating render textures
-    renderTextures[i] =
-        LoadRenderTexture(GetScreenWidth() / numPlayers, GetScreenHeight());
+    renderTextures[i] = LoadRenderTexture(GetScreenWidth() / game->playerCount,
+                                          GetScreenHeight());
 
     // Setting up cameras
     cameras[i].zoom = 1.0;
@@ -90,45 +86,42 @@ Viewport *initializeViewports(int numPlayers, Player *players) {
                                   (int)(renderTextures[i].texture.height / 2)};
 
     // Setting a render texture to viewport
-    viewports[i].renderTexture = &renderTextures[i];
+    game->viewports[i].renderTexture = &renderTextures[i];
 
     // Setting a camera to viewport
-    viewports[i].camera = &cameras[i];
+    game->viewports[i].camera = &cameras[i];
 
     // Setting a player to viewport
-    viewports[i].player = &players[i];
+    game->viewports[i].player = &game->players[i];
   }
-
-  return viewports;
 }
 
-void drawEnemies(Enemy *enemies, int numEnemies) {
+void drawEnemies(Game *game) {
   // Drawing all enemies
-  for (int i = 0; i < numEnemies; i++) {
-    DrawRectangleRounded((Rectangle){enemies[i].position.x,
-                                     enemies[i].position.y, enemies[i].size,
-                                     enemies[i].size},
-                         0.5, 1, enemies[i].color);
+  for (int i = 0; i < game->enemyCount; i++) {
+    DrawRectangleRounded(
+        (Rectangle){game->enemies[i].position.x, game->enemies[i].position.y,
+                    game->enemies[i].size, game->enemies[i].size},
+        0.5, 1, game->enemies[i].color);
   }
 }
 
-void updateEnemies(Enemy *enemies, int numEnemies, Player *players,
-                   int numPlayers) {
-  for (int i = 0; i < numEnemies; i++) {
+void updateEnemies(Game *game) {
+  for (int i = 0; i < game->enemyCount; i++) {
     Player *closestPlayer = NULL;
     float shortestDistance = INT_MAX;
 
-    for (int j = 0; j < numPlayers; j++) {
-      pthread_mutex_lock(&players[j].mutex);
+    for (int j = 0; j < game->playerCount; j++) {
+      pthread_mutex_lock(&game->players[j].mutex);
 
-      float distance =
-          getDistanceBetweenVectors(enemies[i].position, players[j].position);
+      float distance = getDistanceBetweenVectors(game->enemies[i].position,
+                                                 game->players[j].position);
 
       if (distance < shortestDistance) {
         shortestDistance = distance;
-        closestPlayer = &players[j];
+        closestPlayer = &game->players[j];
       }
-      pthread_mutex_unlock(&players[j].mutex);
+      pthread_mutex_unlock(&game->players[j].mutex);
     };
 
     if (shortestDistance < (float)closestPlayer->size / 2) {
@@ -136,36 +129,40 @@ void updateEnemies(Enemy *enemies, int numEnemies, Player *players,
     }
 
     // Getting direction to the closest player
-    Vector2 direction =
-        getDirectionVector2s(enemies[i].position, closestPlayer->position);
+    Vector2 direction = getDirectionVector2s(game->enemies[i].position,
+                                             closestPlayer->position);
 
-    Vector2 velocity = (Vector2){direction.x * enemies[i].speed,
-                                 direction.y * enemies[i].speed};
+    Vector2 velocity = (Vector2){direction.x * game->enemies[i].speed,
+                                 direction.y * game->enemies[i].speed};
 
-    enemies[i].position.x += velocity.x;
-    enemies[i].position.y += velocity.y;
+    game->enemies[i].position.x += velocity.x;
+    game->enemies[i].position.y += velocity.y;
 
     // Check for collision with other enemies
     bool colliding = false;
-    for (int j = 0; j < numEnemies; j++) {
+    for (int j = 0; j < game->enemyCount; j++) {
 
-      if (i != j && CheckCollisionCircles(
-                        enemies[i].position, (float)enemies[i].size / 2 + 1,
-                        enemies[j].position, (float)enemies[j].size / 2 + 1)) {
+      if (i != j &&
+          CheckCollisionCircles(game->enemies[i].position,
+                                (float)game->enemies[i].size / 2 + 1,
+                                game->enemies[j].position,
+                                (float)game->enemies[j].size / 2 + 1)) {
         // If collission is detected, push the current enemy in the opposite
         // direction as the player
         colliding = true;
-        direction =
-            getDirectionVector2s(enemies[j].position, enemies[i].position);
+        direction = getDirectionVector2s(game->enemies[j].position,
+                                         game->enemies[i].position);
 
-        enemies[i].position.x += direction.x * (enemies[i].speed + 1);
-        enemies[i].position.y += direction.y * (enemies[i].speed + 1);
+        game->enemies[i].position.x +=
+            direction.x * (game->enemies[i].speed + 1);
+        game->enemies[i].position.y +=
+            direction.y * (game->enemies[i].speed + 1);
       }
     }
     // Undo the move made earlier if colliding
     if (colliding) {
-      enemies[i].position.x -= velocity.x;
-      enemies[i].position.y -= velocity.y;
+      game->enemies[i].position.x -= velocity.x;
+      game->enemies[i].position.y -= velocity.y;
     }
   }
 }
@@ -173,9 +170,10 @@ void updateEnemies(Enemy *enemies, int numEnemies, Player *players,
 void *handleInput(void *arg) {
 
   ViewportThreadArgument *arguments = (ViewportThreadArgument *)arg;
-  Viewport *viewports = arguments->viewports;
+  Game *game = arguments->game;
   int viewportIndex = arguments->viewportIndex;
   int localFrameCount = -1;
+  Viewport *viewports = game->viewports;
 
   while (true) { // Wait for current semaphore to process
     sem_wait(&viewports[viewportIndex].inputSemaphore);
@@ -185,13 +183,15 @@ void *handleInput(void *arg) {
     pthread_mutex_unlock(&frameCountMutex);
 
     if (localFrameCount == x) {
-      sem_post(&viewports[(viewportIndex + 1) % PLAYERS_NUM].inputSemaphore);
+      sem_post(
+          &viewports[(viewportIndex + 1) % game->playerCount].inputSemaphore);
     } else {
       localFrameCount = x;
 
       // Quit and let others quit (by giving them control) if quitting
       if (quitting) {
-        sem_post(&viewports[(viewportIndex + 1) % PLAYERS_NUM].inputSemaphore);
+        sem_post(
+            &viewports[(viewportIndex + 1) % game->playerCount].inputSemaphore);
       }
 
       Vector2 direction = {0, 0};
@@ -243,7 +243,8 @@ void *handleInput(void *arg) {
       viewports[viewportIndex].player->position.y += velocity.y;
       pthread_mutex_unlock(&viewports[viewportIndex].player->mutex);
 
-      sem_post(&viewports[(viewportIndex + 1) % PLAYERS_NUM].inputSemaphore);
+      sem_post(
+          &viewports[(viewportIndex + 1) % game->playerCount].inputSemaphore);
     }
   }
 }
@@ -275,46 +276,42 @@ void drawCircles(Circle *circles, int circleNum) {
   }
 }
 
-void drawPlayers(Player *players, int numPlayers) {
-  for (int i = 0; i < PLAYERS_NUM; i++) {
-    pthread_mutex_lock(&players[i].mutex);
-    DrawRectangleRounded((Rectangle){players[i].position.x,
-                                     players[i].position.y, players[i].size,
-                                     players[i].size},
-                         0.5, 1, players[i].color);
-    pthread_mutex_unlock(&players[i].mutex);
+void drawPlayers(Game *game) {
+  for (int i = 0; i < game->playerCount; i++) {
+    pthread_mutex_lock(&game->players[i].mutex);
+    DrawRectangleRounded(
+        (Rectangle){game->players[i].position.x, game->players[i].position.y,
+                    game->players[i].size, game->players[i].size},
+        0.5, 1, game->players[i].color);
+    pthread_mutex_unlock(&game->players[i].mutex);
   }
 }
 
-void draw(Viewport *viewports, Player *players, Circle *circles, int circleNum,
-          Enemy *enemies, int numEnemies) {
+void draw(Game *game) {
 
   // Drawing on every viewport
-  for (int i = 0; i < PLAYERS_NUM; i++) {
+  for (int i = 0; i < game->playerCount; i++) {
 
     // Updating camera to follow player
-    pthread_mutex_lock(&players[i].mutex);
-    viewports[i].camera->target =
-        (Vector2){(int)(players[i].position.x), (int)(players[i].position.y)};
-    pthread_mutex_unlock(&players[i].mutex);
+    pthread_mutex_lock(&game->players[i].mutex);
+    game->viewports[i].camera->target = (Vector2){
+        (int)(game->players[i].position.x), (int)(game->players[i].position.y)};
+    pthread_mutex_unlock(&game->players[i].mutex);
 
     // Setting to draw on the viewport's RenderTexture
-    BeginTextureMode(*viewports[i].renderTexture);
+    BeginTextureMode(*game->viewports[i].renderTexture);
 
     // Drawing with respect to the viewport's Camera
-    BeginMode2D(*viewports[i].camera);
+    BeginMode2D(*game->viewports[i].camera);
 
     // Start from a clean slate
     ClearBackground(BLACK);
 
-    // Random shit because I needed a background
-    drawCircles(circles, circleNum);
-
     // Draw all enemies
-    drawEnemies(enemies, numEnemies);
+    drawEnemies(game);
 
     // Drawing all players
-    drawPlayers(players, PLAYERS_NUM);
+    drawPlayers(game);
 
     EndMode2D();
     EndTextureMode();
@@ -324,17 +321,17 @@ void draw(Viewport *viewports, Player *players, Circle *circles, int circleNum,
   ClearBackground(BLACK);
 
   // Drawing the prepared viewports to a single screen sized rectangle
-  for (int i = 0; i < PLAYERS_NUM; i++) {
-    DrawTextureRec(viewports[i].renderTexture->texture,
-                   (Rectangle){0, 0, viewports[i].renderTexture->texture.width,
-                               -viewports[i].renderTexture->texture.height},
-                   (Vector2){i * (int)(GetScreenWidth() / PLAYERS_NUM), 0},
-                   WHITE);
+  for (int i = 0; i < game->playerCount; i++) {
+    DrawTextureRec(
+        game->viewports[i].renderTexture->texture,
+        (Rectangle){0, 0, game->viewports[i].renderTexture->texture.width,
+                    -game->viewports[i].renderTexture->texture.height},
+        (Vector2){i * (int)(GetScreenWidth() / game->playerCount), 0}, WHITE);
   }
 
   // Drawing line(s) between screens
-  for (int i = 1; i < PLAYERS_NUM; i++) {
-    DrawRectangle(i * (int)(GetScreenWidth() / PLAYERS_NUM) - 2, 0, 4,
+  for (int i = 1; i < game->playerCount; i++) {
+    DrawRectangle(i * (int)(GetScreenWidth() / game->playerCount) - 2, 0, 4,
                   GetScreenHeight(), WHITE);
   }
 
@@ -343,17 +340,17 @@ void draw(Viewport *viewports, Player *players, Circle *circles, int circleNum,
   // EndDrawing();
 }
 
-void killViewports(Viewport *viewports) {
+void killViewports(Game *game) {
   quitting = true;
-  for (int i = 0; i < PLAYERS_NUM; i++) {
+  for (int i = 0; i < game->playerCount; i++) {
     // Join all threads
     // pthread_join(viewports[i].thread, NULL);
 
     // Unloading all render textures out of the GPU
-    UnloadRenderTexture(*viewports[i].renderTexture);
+    UnloadRenderTexture(*game->viewports[i].renderTexture);
 
     // Destroy semaphores
-    sem_destroy(&viewports[i].inputSemaphore);
+    sem_destroy(&game->viewports[i].inputSemaphore);
   }
 }
 
@@ -366,13 +363,16 @@ int main(int argc, char **args) {
     ToggleFullscreen();
   }
 
-  int numEnemies = 1000;
+  Game game;
 
-  Player *players = initializePlayers();
-  Enemy *enemies = initializeEnemies(numEnemies);
-  Viewport *viewports = initializeViewports(PLAYERS_NUM, players);
+  game.playerCount = 2;
+  game.enemyCount = 100;
 
-  pthread_mutex_init(&frameCountMutex, NULL);
+  initializePlayers(&game);
+  initializeEnemies(&game);
+  initializeViewports(&game);
+
+  pthread_mutex_init(&game.frameCountMutex, NULL);
 
   SetTargetFPS(60);
 
@@ -384,12 +384,12 @@ int main(int argc, char **args) {
   // Initializing viewport threads
 
   // Creating viewport threads
-  for (int i = 0; i < PLAYERS_NUM; i++) {
+  for (int i = 0; i < game.playerCount; i++) {
     ViewportThreadArgument *args = malloc(sizeof(ViewportThreadArgument));
     args->viewportIndex = i;
-    args->viewports = viewports;
+    args->game = &game;
 
-    pthread_create(&viewports[i].thread, NULL, handleInput, (void *)args);
+    pthread_create(&game.viewports[i].thread, NULL, handleInput, (void *)args);
   }
 
   while (!WindowShouldClose()) {
@@ -401,12 +401,12 @@ int main(int argc, char **args) {
 
     // Update
     if (!paused) {
-      updateEnemies(enemies, numEnemies, players, PLAYERS_NUM);
+      updateEnemies(&game);
     }
 
     BeginDrawing();
     // Drawing everything to screen
-    draw(viewports, players, circles, circleNum, enemies, numEnemies);
+    draw(&game);
 
     if (paused) {
       DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
@@ -422,7 +422,7 @@ int main(int argc, char **args) {
     pthread_mutex_unlock(&frameCountMutex);
   }
 
-  killViewports(viewports);
+  killViewports(&game);
 
   CloseWindow();
 

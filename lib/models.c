@@ -31,8 +31,22 @@ typedef struct {
   pthread_t thread;
 } Viewport;
 
+// Game Struct
+typedef struct {
+  int frameCount;
+  pthread_mutex_t frameCountMutex;
+
+  Player *players;
+  int playerCount;
+
+  Enemy *enemies;
+  int enemyCount;
+
+  Viewport *viewports;
+} Game;
+
 // Viewport Thread Arguments Struct
 typedef struct {
-  Viewport *viewports;
+  Game *game;
   int viewportIndex;
 } ViewportThreadArgument;
