@@ -281,11 +281,19 @@ int main(int argc, char **args) {
   int circleNum = 30;
   Circle *circles = initCircles(circleNum, 3);
 
-  while (!WindowShouldClose()) {
-    // Handling Player Input (Should be done as threads later on)
-    handleInput(viewports);
-    updateEnemies(enemies, numEnemies, players, PLAYERS_NUM);
+  bool paused = false;
 
+  while (!WindowShouldClose()) {
+
+    // Pausing
+    if (IsKeyPressed(KEY_P)) {
+      paused = !paused;
+    }
+    // Handling Player Input (Should be done as threads later on)
+    if (!paused) {
+      handleInput(viewports);
+      updateEnemies(enemies, numEnemies, players, PLAYERS_NUM);
+    }
     // Drawing everything to screen
     draw(viewports, players, circles, circleNum, enemies, numEnemies);
   }
