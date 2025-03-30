@@ -41,6 +41,9 @@ typedef struct {
   int frameCount;
   pthread_mutex_t frameCountMutex;
 
+  int battery;
+  pthread_mutex_t batteryMutex;
+
   Player *players;
   int playerCount;
 

@@ -2,7 +2,6 @@
 #include "lib/vector_ops.h"
 #include "raylib.h"
 #include <limits.h>
-#include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <stdio.h>
@@ -296,7 +295,13 @@ void *updatePlayer(void *arg) {
         pthread_mutex_unlock(&viewports[viewportIndex].player->mutex);
 
         if (closestEnemyIndex != -1) {
-          killEnemy(game, closestEnemyIndex);
+          // Check if battery available
+          pthread_mutex_lock(&game->batteryMutex);
+          if (game->battery > 0) {
+            killEnemy(game, closestEnemyIndex);
+            game->battery--;
+          }
+          pthread_mutex_unlock(&game->batteryMutex);
         }
       }
 
@@ -375,7 +380,7 @@ void draw(Game *game) {
     char playerHealthText[128];
     int playerHealthFontSize = 18;
     pthread_mutex_lock(&game->players[i].mutex);
-    sprintf(playerHealthText, "Player %d Health: %.1f", i,
+    sprintf(playerHealthText, "Player %d Health: %.1f", i + 1,
             game->players[i].health);
     pthread_mutex_unlock(&game->players[i].mutex);
 
@@ -419,11 +424,26 @@ void draw(Game *game) {
 
   char enemiesAliveText[128];
   sprintf(enemiesAliveText, "Enemies Alive: %d", enemiesLeft);
-  int fontSize = 25;
+  int enemiesAliveFontSize = 25;
 
   DrawText(enemiesAliveText,
-           GetScreenWidth() / 2 - MeasureText(enemiesAliveText, fontSize) / 2,
-           GetScreenHeight() * 0.01, 25, WHITE);
+           GetScreenWidth() / 2 -
+               MeasureText(enemiesAliveText, enemiesAliveFontSize) / 2,
+           GetScreenHeight() * 0.01, enemiesAliveFontSize, WHITE);
+
+  // Draw battery left
+  pthread_mutex_lock(&game->batteryMutex);
+  int battery = game->battery;
+  pthread_mutex_unlock(&game->batteryMutex);
+
+  char batteryText[128];
+  sprintf(batteryText, "Battery: %d", battery);
+  int batteryFontSize = 25;
+
+  DrawText(batteryText,
+           GetScreenWidth() / 2 - MeasureText(batteryText, batteryFontSize) / 2,
+           GetScreenHeight() * 0.01 + enemiesAliveFontSize, batteryFontSize,
+           WHITE);
 }
 
 void killViewports(Game *game) {
@@ -455,6 +475,7 @@ int main(int argc, char **args) {
   game.maxEnemies = 100;
   game.enemyCount = 50;
   game.targetFPS = 60;
+  game.battery = 100;
   game.paused = false;
 
   initializePlayers(&game);
@@ -463,6 +484,7 @@ int main(int argc, char **args) {
 
   pthread_mutex_init(&game.frameCountMutex, NULL);
   pthread_mutex_init(&game.enemyCountMutex, NULL);
+  pthread_mutex_init(&game.batteryMutex, NULL);
 
   SetTargetFPS(game.targetFPS);
 
