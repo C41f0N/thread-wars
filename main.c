@@ -9,11 +9,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-bool quitting = false;
-
-int frameCount = 0;
-pthread_mutex_t frameCountMutex;
-
 /*
     Stores keymaps for each player
     Sequence: Up, Left, Down, Right
@@ -74,7 +69,7 @@ void initializeEnemies(Game *game) {
     game->enemies[i].color = RED;
     game->enemies[i].active = i < game->enemyCount;
     game->enemies[i].damage = 5;
-    game->enemies[i].speed = 200 / game->targetFPS;
+    game->enemies[i].speed = (100 + (rand() % 101)) / game->targetFPS;
     game->enemies[i].position = (Vector2){((rand() % range) - (float)range / 2),
                                           (rand() % range) - (float)range / 2};
   }
@@ -209,6 +204,31 @@ void updateEnemies(Game *game) {
   }
 }
 
+void addEnemies(Game *game, int n) {
+  int i = 0;
+  pthread_mutex_lock(&game->enemyCountMutex);
+  while (n > 0 && game->enemyCount <= game->maxEnemies &&
+         i < game->maxEnemies) {
+
+    if (!game->enemies[i].active) {
+      game->enemies[i].active = true;
+      game->enemies[i].size = 30;
+      game->enemies[i].color = RED;
+      game->enemies[i].damage = 5;
+      game->enemies[i].speed = 200 / game->targetFPS;
+      game->enemies[i].position = (Vector2){
+          ((rand() % GetScreenWidth()) - (float)GetScreenWidth() / 2),
+          (rand() % GetScreenHeight()) - (float)GetScreenHeight() / 2};
+      game->enemyCount++;
+      n--;
+    }
+
+    i++;
+  }
+
+  pthread_mutex_unlock(&game->enemyCountMutex);
+}
+
 void killEnemy(Game *game, int enemyIndex) {
   game->enemies[enemyIndex].active = false;
   pthread_mutex_lock(&game->enemyCountMutex);
@@ -227,9 +247,9 @@ void *updatePlayer(void *arg) {
   while (true) { // Wait for current semaphore to process
     sem_wait(&viewports[viewportIndex].inputSemaphore);
 
-    pthread_mutex_lock(&frameCountMutex);
-    int x = frameCount;
-    pthread_mutex_unlock(&frameCountMutex);
+    pthread_mutex_lock(&game->frameCountMutex);
+    int x = game->frameCount;
+    pthread_mutex_unlock(&game->frameCountMutex);
 
     if (localFrameCount == x) {
       sem_post(
@@ -238,9 +258,10 @@ void *updatePlayer(void *arg) {
       localFrameCount = x;
 
       // Quit and let others quit (by giving them control) if quitting
-      if (quitting) {
+      if (game->isQuitting) {
         sem_post(
             &viewports[(viewportIndex + 1) % game->playerCount].inputSemaphore);
+        break;
       }
 
       Vector2 direction = {0, 0};
@@ -309,6 +330,8 @@ void *updatePlayer(void *arg) {
           &viewports[(viewportIndex + 1) % game->playerCount].inputSemaphore);
     }
   }
+
+  return NULL;
 }
 
 void drawPlayers(Game *game) {
@@ -404,10 +427,10 @@ void draw(Game *game) {
 }
 
 void killViewports(Game *game) {
-  quitting = true;
+  game->isQuitting = true;
   for (int i = 0; i < game->playerCount; i++) {
     // Join all threads
-    // pthread_join(viewports[i].thread, NULL);
+    pthread_join(game->viewports[i].thread, NULL);
 
     // Unloading all render textures out of the GPU
     UnloadRenderTexture(*game->viewports[i].renderTexture);
@@ -459,6 +482,11 @@ int main(int argc, char **args) {
       game.paused = !game.paused;
     }
 
+    // Adding enemies
+    if (IsKeyPressed(KEY_BACKSPACE)) {
+      addEnemies(&game, 5);
+    }
+
     // Update
     if (!game.paused) {
       updateEnemies(&game);
@@ -479,9 +507,9 @@ int main(int argc, char **args) {
     }
 
     EndDrawing();
-    pthread_mutex_lock(&frameCountMutex);
-    frameCount++;
-    pthread_mutex_unlock(&frameCountMutex);
+    pthread_mutex_lock(&game.frameCountMutex);
+    game.frameCount++;
+    pthread_mutex_unlock(&game.frameCountMutex);
   }
 
   killViewports(&game);

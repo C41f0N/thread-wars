@@ -35,6 +35,7 @@ typedef struct {
 // Game Struct
 typedef struct {
   bool paused;
+  bool isQuitting;
   int targetFPS;
 
   int frameCount;
