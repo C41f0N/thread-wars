@@ -44,8 +44,10 @@ typedef struct {
   int playerCount;
 
   Enemy *enemies;
-  int enemyCount;
   int maxEnemies;
+
+  int enemyCount;
+  pthread_mutex_t enemyCountMutex;
 
   Viewport *viewports;
 } Game;

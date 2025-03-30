@@ -18,9 +18,9 @@ pthread_mutex_t frameCountMutex;
     Stores keymaps for each player
     Sequence: Up, Left, Down, Right
 */
-int controls[3][4] = {{KEY_W, KEY_A, KEY_S, KEY_D},
-                      {KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT},
-                      {KEY_T, KEY_F, KEY_G, KEY_H}};
+int controls[3][5] = {{KEY_W, KEY_A, KEY_S, KEY_D, KEY_SPACE},
+                      {KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT, KEY_ENTER},
+                      {KEY_T, KEY_F, KEY_G, KEY_H, KEY_U}};
 
 void initializePlayers(Game *game) {
   Color playerColors[] = {YELLOW, BLUE, GREEN, PINK};
@@ -41,6 +41,26 @@ void initializePlayers(Game *game) {
       };
     }
   }
+}
+
+int getClosestEnemyIndex(Game *game, Vector2 from) {
+  float shortestDistance = INT_MAX;
+  int closestEnemyIndex = -1;
+
+  for (int i = 0; i < game->maxEnemies; i++) {
+    if (game->enemies[i].active) {
+
+      float distance =
+          getDistanceBetweenVectors(game->enemies[i].position, from);
+
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        closestEnemyIndex = i;
+      }
+    }
+  };
+
+  return closestEnemyIndex;
 }
 
 void initializeEnemies(Game *game) {
@@ -114,9 +134,8 @@ void drawEnemies(Game *game) {
 void updateEnemies(Game *game) {
   for (int i = 0; i < game->maxEnemies; i++) {
     // Skip inactive enemies
-    if (!game->enemies[i].active) {
+    if (!game->enemies[i].active)
       continue;
-    }
 
     Player *closestPlayer = NULL;
     float shortestDistance = INT_MAX;
@@ -150,7 +169,11 @@ void updateEnemies(Game *game) {
 
     // Check for collision with other enemies
     bool colliding = false;
-    for (int j = 0; j < game->enemyCount; j++) {
+    for (int j = 0; j < game->maxEnemies; j++) {
+
+      // Skip inactive enemies
+      if (!game->enemies[j].active)
+        continue;
 
       if (i != j &&
           CheckCollisionCircles(
@@ -180,6 +203,9 @@ void updateEnemies(Game *game) {
 
 void killEnemy(Game *game, int enemyIndex) {
   game->enemies[enemyIndex].active = false;
+  pthread_mutex_lock(&game->enemyCountMutex);
+  game->enemyCount--;
+  pthread_mutex_unlock(&game->enemyCountMutex);
 }
 
 void *handleInput(void *arg) {
@@ -229,6 +255,20 @@ void *handleInput(void *arg) {
       // Right
       if (IsKeyDown(controls[viewportIndex % (int)(sizeof(controls) / 4)][3])) {
         direction.x = 1;
+      }
+
+      // Shoot
+      if (IsKeyPressed(
+              controls[viewportIndex % (int)(sizeof(controls) / 4)][4])) {
+        // Get closest enemy from player
+        pthread_mutex_lock(&viewports[viewportIndex].player->mutex);
+        int closestEnemyIndex = getClosestEnemyIndex(
+            game, viewports[viewportIndex].player->position);
+        pthread_mutex_unlock(&viewports[viewportIndex].player->mutex);
+
+        if (closestEnemyIndex != -1) {
+          killEnemy(game, closestEnemyIndex);
+        }
       }
 
       // Zoom In
@@ -304,7 +344,6 @@ void draw(Game *game) {
     EndTextureMode();
   }
 
-  // BeginDrawing();
   ClearBackground(BLACK);
 
   // Drawing the prepared viewports to a single screen sized rectangle
@@ -322,9 +361,20 @@ void draw(Game *game) {
                   GetScreenHeight(), WHITE);
   }
 
+  // Draw FPS
   DrawFPS(0, 0);
 
-  // EndDrawing();
+  // Draw enemies left
+  pthread_mutex_lock(&game->enemyCountMutex);
+  int enemiesLeft = game->enemyCount;
+  pthread_mutex_unlock(&game->enemyCountMutex);
+
+  char text[128];
+  sprintf(text, "Enemies Left: %d", enemiesLeft);
+  int fontSize = 25;
+
+  DrawText(text, GetScreenWidth() / 2 - MeasureText(text, fontSize) / 2,
+           GetScreenHeight() * 0.01, 25, WHITE);
 }
 
 void killViewports(Game *game) {
@@ -363,6 +413,7 @@ int main(int argc, char **args) {
   initializeViewports(&game);
 
   pthread_mutex_init(&game.frameCountMutex, NULL);
+  pthread_mutex_init(&game.enemyCountMutex, NULL);
 
   SetTargetFPS(game.targetFPS);
 
