@@ -33,6 +33,9 @@ typedef struct {
 
 // Game Struct
 typedef struct {
+  bool paused;
+  int targetFPS;
+
   int frameCount;
   pthread_mutex_t frameCountMutex;
 

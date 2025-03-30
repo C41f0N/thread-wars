@@ -29,8 +29,7 @@ void initializePlayers(Game *game) {
 
   for (int i = 0; i < game->playerCount; i++) {
     game->players[i].size = 50;
-    game->players[i].speed = 10;
-    // game->players[i].speed = 10;
+    game->players[i].speed = (float)600 / game->targetFPS;
     game->players[i].color = playerColors[i % game->playerCount];
     game->players[i].position =
         (Vector2){0 + i * (20 + game->players[i].size), 0};
@@ -52,7 +51,7 @@ void initializeEnemies(Game *game) {
   for (int i = 0; i < game->enemyCount; i++) {
     game->enemies[i].size = 30;
     game->enemies[i].color = RED;
-    game->enemies[i].speed = 1 + (int)((rand() % 50) / 10);
+    game->enemies[i].speed = 200 / game->targetFPS;
     game->enemies[i].position = (Vector2){((rand() % range) - (float)range / 2),
                                           (rand() % range) - (float)range / 2};
   }
@@ -143,20 +142,21 @@ void updateEnemies(Game *game) {
     for (int j = 0; j < game->enemyCount; j++) {
 
       if (i != j &&
-          CheckCollisionCircles(game->enemies[i].position,
-                                (float)game->enemies[i].size / 2 + 1,
-                                game->enemies[j].position,
-                                (float)game->enemies[j].size / 2 + 1)) {
+          CheckCollisionCircles(
+              game->enemies[i].position, (float)game->enemies[i].size * 0.55,
+              game->enemies[j].position, (float)game->enemies[j].size * 0.55)) {
         // If collission is detected, push the current enemy in the opposite
         // direction as the player
         colliding = true;
         direction = getDirectionVector2s(game->enemies[j].position,
                                          game->enemies[i].position);
+        // direction = normalizeVector2(
+        //     (Vector2){(float)(rand() % 20 - 10), (float)(rand() % 20 - 10)});
 
         game->enemies[i].position.x +=
-            direction.x * (game->enemies[i].speed + 1);
+            direction.x * (game->enemies[i].speed * 0.5);
         game->enemies[i].position.y +=
-            direction.y * (game->enemies[i].speed + 1);
+            direction.y * (game->enemies[i].speed * 0.5);
       }
     }
     // Undo the move made earlier if colliding
@@ -367,6 +367,7 @@ int main(int argc, char **args) {
 
   game.playerCount = 2;
   game.enemyCount = 100;
+  game.targetFPS = 60;
 
   initializePlayers(&game);
   initializeEnemies(&game);
@@ -374,14 +375,10 @@ int main(int argc, char **args) {
 
   pthread_mutex_init(&game.frameCountMutex, NULL);
 
-  SetTargetFPS(60);
+  SetTargetFPS(game.targetFPS);
 
   int circleNum = 30;
   Circle *circles = initCircles(circleNum, 3);
-
-  bool paused = false;
-
-  // Initializing viewport threads
 
   // Creating viewport threads
   for (int i = 0; i < game.playerCount; i++) {
@@ -396,11 +393,11 @@ int main(int argc, char **args) {
 
     // Pausing
     if (IsKeyPressed(KEY_P)) {
-      paused = !paused;
+      game.paused = !game.paused;
     }
 
     // Update
-    if (!paused) {
+    if (!game.paused) {
       updateEnemies(&game);
     }
 
@@ -408,7 +405,7 @@ int main(int argc, char **args) {
     // Drawing everything to screen
     draw(&game);
 
-    if (paused) {
+    if (game.paused) {
       DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
       char text[] = "PAUSED";
       int fontSize = GetScreenHeight() * 0.05;
