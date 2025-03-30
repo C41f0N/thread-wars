@@ -19,6 +19,7 @@ typedef struct {
   int speed;
   int size;
   int health;
+  bool active;
   Color color;
 } Enemy;
 
@@ -44,6 +45,7 @@ typedef struct {
 
   Enemy *enemies;
   int enemyCount;
+  int maxEnemies;
 
   Viewport *viewports;
 } Game;

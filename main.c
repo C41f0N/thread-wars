@@ -44,17 +44,21 @@ void initializePlayers(Game *game) {
 }
 
 void initializeEnemies(Game *game) {
-  game->enemies = calloc(game->enemyCount, sizeof(Enemy));
+  game->enemies = calloc(game->maxEnemies, sizeof(Enemy));
 
   int range = (int)(GetScreenWidth() / game->playerCount);
 
-  for (int i = 0; i < game->enemyCount; i++) {
+  for (int i = 0; i < game->maxEnemies; i++) {
     game->enemies[i].size = 30;
     game->enemies[i].color = RED;
+    game->enemies[i].health = 10;
+    game->enemies[i].active = i < game->enemyCount;
     game->enemies[i].speed = 200 / game->targetFPS;
     game->enemies[i].position = (Vector2){((rand() % range) - (float)range / 2),
                                           (rand() % range) - (float)range / 2};
   }
+
+  // Activate fixed number of enemies
 }
 
 // Function to create and initialize viewports
@@ -97,16 +101,23 @@ void initializeViewports(Game *game) {
 
 void drawEnemies(Game *game) {
   // Drawing all enemies
-  for (int i = 0; i < game->enemyCount; i++) {
-    DrawRectangleRounded(
-        (Rectangle){game->enemies[i].position.x, game->enemies[i].position.y,
-                    game->enemies[i].size, game->enemies[i].size},
-        0.5, 1, game->enemies[i].color);
+  for (int i = 0; i < game->maxEnemies; i++) {
+    if (game->enemies[i].active) {
+      DrawRectangleRounded(
+          (Rectangle){game->enemies[i].position.x, game->enemies[i].position.y,
+                      game->enemies[i].size, game->enemies[i].size},
+          0.5, 1, game->enemies[i].color);
+    }
   }
 }
 
 void updateEnemies(Game *game) {
-  for (int i = 0; i < game->enemyCount; i++) {
+  for (int i = 0; i < game->maxEnemies; i++) {
+    // Skip inactive enemies
+    if (!game->enemies[i].active) {
+      continue;
+    }
+
     Player *closestPlayer = NULL;
     float shortestDistance = INT_MAX;
 
@@ -165,6 +176,10 @@ void updateEnemies(Game *game) {
       game->enemies[i].position.y -= velocity.y;
     }
   }
+}
+
+void killEnemy(Game *game, int enemyIndex) {
+  game->enemies[enemyIndex].active = false;
 }
 
 void *handleInput(void *arg) {
@@ -226,53 +241,25 @@ void *handleInput(void *arg) {
         viewports[viewportIndex].camera->zoom -= 0.25;
       }
 
-      // Calculating unit vector (direction) of movement
-      float magnitude =
-          sqrtf(direction.x * direction.x + direction.y * direction.y);
-      if (magnitude != 0) {
-        direction = (Vector2){direction.x / magnitude, direction.y / magnitude};
-      }
+      // Normalizing direction of movement
+      direction = normalizeVector2(direction);
 
       // Multiplying direction with speed to get velocity
       Vector2 velocity = {direction.x * viewports[viewportIndex].player->speed,
                           direction.y * viewports[viewportIndex].player->speed};
 
-      // Moving the player via velocity
-      pthread_mutex_lock(&viewports[viewportIndex].player->mutex);
-      viewports[viewportIndex].player->position.x += velocity.x;
-      viewports[viewportIndex].player->position.y += velocity.y;
-      pthread_mutex_unlock(&viewports[viewportIndex].player->mutex);
+      if (!game->paused) {
+        // Moving the player via velocity
+        pthread_mutex_lock(&viewports[viewportIndex].player->mutex);
+        viewports[viewportIndex].player->position.x += velocity.x;
+        viewports[viewportIndex].player->position.y += velocity.y;
+        pthread_mutex_unlock(&viewports[viewportIndex].player->mutex);
+      }
 
+      // Giving control to the next viewport thread
       sem_post(
           &viewports[(viewportIndex + 1) % game->playerCount].inputSemaphore);
     }
-  }
-}
-
-typedef struct {
-  int centerX, centerY, radius;
-  Color color;
-} Circle;
-
-// Creates randomly placed/sized Circles
-Circle *initCircles(int circleNum, int bounds) {
-
-  Circle *circles = calloc(circleNum, sizeof(Circle));
-
-  for (int i = 0; i < circleNum; i++) {
-    circles[i].centerX = (rand() % (2 * GetScreenWidth())) - GetScreenWidth();
-    circles[i].centerY = (rand() % (2 * GetScreenHeight())) - GetScreenHeight();
-    circles[i].radius = rand() % 5;
-    circles[i].color = WHITE;
-  }
-
-  return circles;
-}
-
-void drawCircles(Circle *circles, int circleNum) {
-  for (int i = 0; i < circleNum; i++) {
-    DrawCircle(circles[i].centerX, circles[i].centerY, circles[i].radius,
-               circles[i].color);
   }
 }
 
@@ -366,8 +353,10 @@ int main(int argc, char **args) {
   Game game;
 
   game.playerCount = 2;
-  game.enemyCount = 100;
+  game.maxEnemies = 100;
+  game.enemyCount = 50;
   game.targetFPS = 60;
+  game.paused = false;
 
   initializePlayers(&game);
   initializeEnemies(&game);
@@ -376,9 +365,6 @@ int main(int argc, char **args) {
   pthread_mutex_init(&game.frameCountMutex, NULL);
 
   SetTargetFPS(game.targetFPS);
-
-  int circleNum = 30;
-  Circle *circles = initCircles(circleNum, 3);
 
   // Creating viewport threads
   for (int i = 0; i < game.playerCount; i++) {
