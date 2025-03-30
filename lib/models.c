@@ -8,7 +8,7 @@ typedef struct {
   Vector2 position;
   float speed;
   int size;
-  int health;
+  float health;
   Color color;
   pthread_mutex_t mutex;
 } Player;
@@ -16,9 +16,9 @@ typedef struct {
 // Enemy Struct
 typedef struct {
   Vector2 position;
+  float damage;
   int speed;
   int size;
-  int health;
   bool active;
   Color color;
 } Enemy;

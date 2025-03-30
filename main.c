@@ -30,6 +30,7 @@ void initializePlayers(Game *game) {
   for (int i = 0; i < game->playerCount; i++) {
     game->players[i].size = 50;
     game->players[i].speed = (float)600 / game->targetFPS;
+    game->players[i].health = 100;
     game->players[i].color = playerColors[i % game->playerCount];
     game->players[i].position =
         (Vector2){0 + i * (20 + game->players[i].size), 0};
@@ -71,8 +72,8 @@ void initializeEnemies(Game *game) {
   for (int i = 0; i < game->maxEnemies; i++) {
     game->enemies[i].size = 30;
     game->enemies[i].color = RED;
-    game->enemies[i].health = 10;
     game->enemies[i].active = i < game->enemyCount;
+    game->enemies[i].damage = 5;
     game->enemies[i].speed = 200 / game->targetFPS;
     game->enemies[i].position = (Vector2){((rand() % range) - (float)range / 2),
                                           (rand() % range) - (float)range / 2};
@@ -124,8 +125,10 @@ void drawEnemies(Game *game) {
   for (int i = 0; i < game->maxEnemies; i++) {
     if (game->enemies[i].active) {
       DrawRectangleRounded(
-          (Rectangle){game->enemies[i].position.x, game->enemies[i].position.y,
-                      game->enemies[i].size, game->enemies[i].size},
+          (Rectangle){
+              game->enemies[i].position.x + (float)game->enemies[i].size / 2,
+              game->enemies[i].position.y + (float)game->enemies[i].size / 2,
+              game->enemies[i].size, game->enemies[i].size},
           0.5, 1, game->enemies[i].color);
     }
   }
@@ -153,7 +156,12 @@ void updateEnemies(Game *game) {
       pthread_mutex_unlock(&game->players[j].mutex);
     };
 
-    if (shortestDistance < (float)closestPlayer->size / 2) {
+    // if close enough to player, stop and give him damage
+    if (shortestDistance < (float)closestPlayer->size) {
+      pthread_mutex_lock(&closestPlayer->mutex);
+      closestPlayer->health -= (float)game->enemies[i].damage / game->targetFPS;
+      pthread_mutex_unlock(&closestPlayer->mutex);
+
       continue;
     }
 
@@ -208,7 +216,7 @@ void killEnemy(Game *game, int enemyIndex) {
   pthread_mutex_unlock(&game->enemyCountMutex);
 }
 
-void *handleInput(void *arg) {
+void *updatePlayer(void *arg) {
 
   ViewportThreadArgument *arguments = (ViewportThreadArgument *)arg;
   Game *game = arguments->game;
@@ -340,7 +348,24 @@ void draw(Game *game) {
     // Drawing all players
     drawPlayers(game);
 
+    // Draw player health
+    char playerHealthText[128];
+    int playerHealthFontSize = 18;
+    pthread_mutex_lock(&game->players[i].mutex);
+    sprintf(playerHealthText, "Player %d Health: %.1f", i,
+            game->players[i].health);
+    pthread_mutex_unlock(&game->players[i].mutex);
+
     EndMode2D();
+
+    DrawText(playerHealthText,
+             game->viewports[i].renderTexture->texture.width / 2 -
+                 MeasureText(playerHealthText, playerHealthFontSize) / 2,
+             game->viewports[i].renderTexture->texture.height -
+                 playerHealthFontSize -
+                 game->viewports[i].renderTexture->texture.height * 0.01,
+             playerHealthFontSize, WHITE);
+
     EndTextureMode();
   }
 
@@ -369,11 +394,12 @@ void draw(Game *game) {
   int enemiesLeft = game->enemyCount;
   pthread_mutex_unlock(&game->enemyCountMutex);
 
-  char text[128];
-  sprintf(text, "Enemies Left: %d", enemiesLeft);
+  char enemiesAliveText[128];
+  sprintf(enemiesAliveText, "Enemies Alive: %d", enemiesLeft);
   int fontSize = 25;
 
-  DrawText(text, GetScreenWidth() / 2 - MeasureText(text, fontSize) / 2,
+  DrawText(enemiesAliveText,
+           GetScreenWidth() / 2 - MeasureText(enemiesAliveText, fontSize) / 2,
            GetScreenHeight() * 0.01, 25, WHITE);
 }
 
@@ -423,7 +449,7 @@ int main(int argc, char **args) {
     args->viewportIndex = i;
     args->game = &game;
 
-    pthread_create(&game.viewports[i].thread, NULL, handleInput, (void *)args);
+    pthread_create(&game.viewports[i].thread, NULL, updatePlayer, (void *)args);
   }
 
   while (!WindowShouldClose()) {
@@ -444,9 +470,11 @@ int main(int argc, char **args) {
 
     if (game.paused) {
       DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
-      char text[] = "PAUSED";
+      char enemiesAliveText[] = "PAUSED";
       int fontSize = GetScreenHeight() * 0.05;
-      DrawText(text, GetScreenWidth() / 2 - MeasureText(text, fontSize) / 2,
+      DrawText(enemiesAliveText,
+               GetScreenWidth() / 2 -
+                   MeasureText(enemiesAliveText, fontSize) / 2,
                GetScreenHeight() / 2 - fontSize / 2, fontSize, WHITE);
     }
 
