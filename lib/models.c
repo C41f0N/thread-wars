@@ -23,6 +23,12 @@ typedef struct {
   Color color;
 } Enemy;
 
+// Solar Charger Struct
+typedef struct {
+  int width, height;
+  Vector2 position;
+} SolarCharger;
+
 // Viewport Struct
 typedef struct {
   Camera2D *camera;
@@ -49,6 +55,9 @@ typedef struct {
 
   Enemy *enemies;
   int maxEnemies;
+
+  SolarCharger *solarChagers;
+  int maxSolarChargers, numSolarChargers;
 
   int enemyCount;
   pthread_mutex_t enemyCountMutex;
