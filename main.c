@@ -17,6 +17,88 @@ int controls[3][7] = {
     {KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT, KEY_ENTER, KEY_MINUS, KEY_EQUAL},
 };
 
+void *computeSolarChargers(void *arg) {
+
+  Game *game = ((SolarChargingComputerThreadArgument *)(arg))->game;
+  int j =
+      ((SolarChargingComputerThreadArgument *)(arg))->solarChargerComputerIndex;
+  free(arg);
+
+  int localFrameCount = -1;
+
+  while (true) {
+    if (localFrameCount == game->frameCount) {
+      continue;
+    }
+
+    localFrameCount = game->frameCount;
+
+    for (int i = j * (game->maxSolarChargers / game->numSolarChargesComputers);
+         i <
+         (j + 1) * (game->maxSolarChargers / game->numSolarChargesComputers);
+         i++) {
+      if (game->solarChargers[i].active) {
+
+        printf("HERE %d", j);
+        // Get charge value
+        float chargeValue = ((float)(game->solarChargers[i].height *
+                                     game->solarChargers[i].width) /
+                             10000) /
+                            game->targetFPS;
+
+        // Charge the battery
+        pthread_mutex_lock(&game->batteryMutex);
+        game->battery += chargeValue;
+        pthread_mutex_unlock(&game->batteryMutex);
+      }
+    }
+
+    if (game->isQuitting) {
+      pthread_exit(NULL);
+    }
+  }
+}
+
+void initializeSolarChargers(Game *game) {
+  game->solarChargers = calloc(game->maxSolarChargers, sizeof(SolarCharger));
+
+  for (int i = 0; i < game->maxSolarChargers; i++) {
+    game->solarChargers[i].active = false;
+    game->solarChargers[i].height = 0;
+    game->solarChargers[i].width = 0;
+    game->solarChargers[i].position = (Vector2){0, 0};
+  }
+
+  game->solarChargesComputingThreads =
+      (pthread_t *)calloc(game->numSolarChargesComputers, sizeof(pthread_t));
+
+  // Start computing threads for solar charges
+  for (int i = 0; i < game->numSolarChargesComputers; i++) {
+
+    SolarChargingComputerThreadArgument *arg =
+        malloc(sizeof(SolarChargingComputerThreadArgument));
+    arg->solarChargerComputerIndex = i;
+    arg->game = game;
+
+    pthread_create(&game->solarChargesComputingThreads[i], NULL,
+                   computeSolarChargers, (void *)arg);
+  }
+}
+
+void buildSolarCharger(Game *game, Vector2 position, int size) {
+
+  for (int i = 0; i < game->maxSolarChargers; i++) {
+    if (!game->solarChargers[i].active) {
+      game->solarChargers[i].active = true;
+      game->solarChargers[i].height = 100;
+      game->solarChargers[i].width = size * 100;
+      game->solarChargers[i].position = position;
+
+      break;
+    }
+  }
+}
+
 void initializePlayers(Game *game) {
   Color playerColors[] = {YELLOW, BLUE, GREEN, PINK};
 
@@ -77,11 +159,6 @@ void initializeEnemies(Game *game) {
   // Activate fixed number of enemies
 }
 
-void initializeSolarChargers(Game *game) {
-  game->numSolarChargers = 0;
-  game->solarChagers = calloc(game->maxSolarChargers, sizeof(SolarCharger));
-}
-
 // Function to create and initialize viewports
 void initializeViewports(Game *game) {
 
@@ -135,14 +212,17 @@ void drawEnemies(Game *game) {
 }
 
 void drawSolarChargers(Game *game) {
-  for (int i = 0; i < game->numSolarChargers; i++) {
-    DrawRectangleRounded(
-        (Rectangle){game->solarChagers[i].position.x -
-                        (float)game->solarChagers[i].width / 4,
-                    game->solarChagers[i].position.y -
-                        (float)game->solarChagers[i].height / 4,
-                    game->solarChagers[i].width, game->solarChagers[i].height},
-        0, 1, WHITE);
+  for (int i = 0; i < game->maxSolarChargers; i++) {
+    if (game->solarChargers[i].active) {
+      DrawRectangleRounded(
+          (Rectangle){game->solarChargers[i].position.x -
+                          (float)game->solarChargers[i].width / 4,
+                      game->solarChargers[i].position.y -
+                          (float)game->solarChargers[i].height / 4,
+                      game->solarChargers[i].width,
+                      game->solarChargers[i].height},
+          0, 1, WHITE);
+    }
   }
 }
 
@@ -246,15 +326,6 @@ void addEnemies(Game *game, int n) {
   pthread_mutex_unlock(&game->enemyCountMutex);
 }
 
-void buildSolarCharger(Game *game, Vector2 position, int size) {
-
-  game->solarChagers[game->numSolarChargers].position = position;
-  game->solarChagers[game->numSolarChargers].height = 100;
-  game->solarChagers[game->numSolarChargers].width = size * 100;
-
-  game->numSolarChargers++;
-}
-
 void killEnemy(Game *game, int enemyIndex) {
   game->enemies[enemyIndex].active = false;
   pthread_mutex_lock(&game->enemyCountMutex);
@@ -268,6 +339,7 @@ void *updatePlayer(void *arg) {
   int viewportIndex = args->viewportIndex;
   Viewport *viewport = &game->viewports[viewportIndex];
   int localFrameCount = -1;
+  free(arg);
 
   while (!game->isQuitting) {
     // Wait for this thread's turn
@@ -501,7 +573,8 @@ int main(int argc, char **args) {
   game.playerCount = 2;
   game.maxEnemies = 100;
   game.enemyCount = 50;
-  game.maxSolarChargers = 300;
+  game.maxSolarChargers = 10;
+  game.numSolarChargesComputers = 5;
   game.targetFPS = 60;
   game.battery = 100;
   game.paused = false;
@@ -565,6 +638,11 @@ int main(int argc, char **args) {
   }
 
   killViewports(&game);
+
+  // killSolarChargerComputers
+  for (int i = 0; i < game.numSolarChargesComputers; i++) {
+    pthread_join(*game.solarChargesComputingThreads, NULL);
+  }
 
   CloseWindow();
 

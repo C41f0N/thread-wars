@@ -27,6 +27,7 @@ typedef struct {
 typedef struct {
   int width, height;
   Vector2 position;
+  bool active;
 } SolarCharger;
 
 // Viewport Struct
@@ -47,7 +48,7 @@ typedef struct {
   int frameCount;
   pthread_mutex_t frameCountMutex;
 
-  int battery;
+  float battery;
   pthread_mutex_t batteryMutex;
 
   Player *players;
@@ -56,8 +57,9 @@ typedef struct {
   Enemy *enemies;
   int maxEnemies;
 
-  SolarCharger *solarChagers;
-  int maxSolarChargers, numSolarChargers;
+  SolarCharger *solarChargers;
+  pthread_t *solarChargesComputingThreads;
+  int maxSolarChargers, numSolarChargesComputers;
 
   int enemyCount;
   pthread_mutex_t enemyCountMutex;
@@ -70,3 +72,9 @@ typedef struct {
   Game *game;
   int viewportIndex;
 } ViewportThreadArgument;
+
+// Solar Charger Thread Arguments Struct
+typedef struct {
+  Game *game;
+  int solarChargerComputerIndex;
+} SolarChargingComputerThreadArgument;
