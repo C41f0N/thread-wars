@@ -232,19 +232,19 @@ void addSolarCell(Game *game, Vector2 position) {
 void generateSolarCells(Game *game) {
   // Generate n solar cells in random places
   int n = 20;
-  int radius = 1000;
+  int radius = game->mapSize;
   for (int i = 0; i < n; i++) {
-    addSolarCell(game, (Vector2){(rand() % radius) - (float)radius / 2,
-                                 (rand() % 1000) - (float)radius / 2});
+    addSolarCell(game, (Vector2){(rand() % radius * 2) - game->mapSize,
+                                 (rand() % game->mapSize * 2) - game->mapSize});
   }
 }
 
 void drawSolarCells(Game *game) {
   for (int i = 0; i < game->maxSolarCells; i++) {
     if (game->solarCells[i].active) {
-      DrawRectangleRounded((Rectangle){game->solarCells[i].position.x +
+      DrawRectangleRounded((Rectangle){game->solarCells[i].position.x -
                                            (float)game->solarCells[i].size / 2,
-                                       game->solarCells[i].position.y +
+                                       game->solarCells[i].position.y -
                                            (float)game->solarCells[i].size / 2,
                                        game->solarCells[i].size,
                                        game->solarCells[i].size},
@@ -264,12 +264,15 @@ void collectSolarCells(Game *game, Player *player) {
   pthread_mutex_lock(&game->solarCellsMutex);
   for (int i = 0; i < game->maxSolarCells; i++) {
     if (game->solarCells[i].active &&
-        CheckCollisionRecs((Rectangle){player->position.x, player->position.y,
-                                       player->size, player->size},
-                           (Rectangle){game->solarCells[i].position.x,
-                                       game->solarCells[i].position.y,
-                                       game->solarCells[i].size,
-                                       game->solarCells[i].size})) {
+        CheckCollisionRecs(
+            (Rectangle){player->position.x - (float)player->size / 2,
+                        player->position.y - (float)player->size / 2,
+                        player->size, player->size},
+            (Rectangle){game->solarCells[i].position.x -
+                            (float)game->solarCells[i].size / 2,
+                        game->solarCells[i].position.y -
+                            (float)game->solarCells[i].size / 2,
+                        game->solarCells[i].size, game->solarCells[i].size})) {
 
       // Remove Solar Cell
       game->solarCellsCollected++;
@@ -286,8 +289,8 @@ void drawEnemies(Game *game) {
     if (game->enemies[i].active) {
       DrawRectangleRounded(
           (Rectangle){
-              game->enemies[i].position.x + (float)game->enemies[i].size / 2,
-              game->enemies[i].position.y + (float)game->enemies[i].size / 2,
+              game->enemies[i].position.x - (float)game->enemies[i].size / 2,
+              game->enemies[i].position.y - (float)game->enemies[i].size / 2,
               game->enemies[i].size, game->enemies[i].size},
           1, 1, game->enemies[i].color);
     }
@@ -513,12 +516,32 @@ void *updatePlayer(void *arg) {
     // Apply movement if game isn't paused
     if (!game->paused && (direction.x != 0 || direction.y != 0)) {
       direction = normalizeVector2(direction);
+
       Vector2 velocity = {direction.x * viewport->player->speed,
                           direction.y * viewport->player->speed};
+
+      int boundx = game->mapSize, boundy = game->mapSize;
+
+      if (velocity.x < 0 && viewport->player->position.x < -boundx) {
+        velocity.x = 0;
+      }
+
+      if (velocity.x > 0 && viewport->player->position.x > boundx) {
+        velocity.x = 0;
+      }
+
+      if (velocity.y < 0 && viewport->player->position.y < -boundy) {
+        velocity.y = 0;
+      }
+
+      if (velocity.y > 0 && viewport->player->position.y > boundy) {
+        velocity.y = 0;
+      }
 
       pthread_mutex_lock(&viewport->player->mutex);
       viewport->player->position.x += velocity.x;
       viewport->player->position.y += velocity.y;
+
       pthread_mutex_unlock(&viewport->player->mutex);
     }
 
@@ -534,11 +557,32 @@ void drawPlayers(Game *game) {
   for (int i = 0; i < game->playerCount; i++) {
     pthread_mutex_lock(&game->players[i].mutex);
     DrawRectangleRounded(
-        (Rectangle){game->players[i].position.x, game->players[i].position.y,
-                    game->players[i].size, game->players[i].size},
+        (Rectangle){
+            game->players[i].position.x - (float)game->players[i].size / 2,
+            game->players[i].position.y - (float)game->players[i].size / 2,
+            game->players[i].size, game->players[i].size},
         0.5, 1, game->players[i].color);
     pthread_mutex_unlock(&game->players[i].mutex);
   }
+}
+
+void drawBorders(Game *game) {
+
+  // Bottom
+  DrawLineV((Vector2){(float)game->mapSize, (float)game->mapSize},
+            (Vector2){-(float)game->mapSize, (float)game->mapSize}, WHITE);
+
+  // Up
+  DrawLineV((Vector2){(float)game->mapSize, -(float)game->mapSize},
+            (Vector2){-(float)game->mapSize, -(float)game->mapSize}, WHITE);
+
+  // Left
+  DrawLineV((Vector2){(float)game->mapSize, -(float)game->mapSize},
+            (Vector2){(float)game->mapSize, (float)game->mapSize}, WHITE);
+
+  // Right
+  DrawLineV((Vector2){-(float)game->mapSize, -(float)game->mapSize},
+            (Vector2){-(float)game->mapSize, +(float)game->mapSize}, WHITE);
 }
 
 void draw(Game *game) {
@@ -561,14 +605,17 @@ void draw(Game *game) {
     // Start from a clean slate
     ClearBackground(BLACK);
 
+    // Draw Borders
+    drawBorders(game);
+
     // Draw Solar Chargers
     drawSolarChargers(game);
 
-    // Draw all enemies
-    drawEnemies(game);
-
     // Draw solar cells
     drawSolarCells(game);
+
+    // Draw all enemies
+    drawEnemies(game);
 
     // Drawing all players
     drawPlayers(game);
@@ -672,15 +719,21 @@ int main(int argc, char **args) {
   Game game;
 
   game.playerCount = 2;
+
   game.maxEnemies = 300;
   game.enemyCount = 50;
+
   game.solarCells = 0;
+  game.maxSolarCells = 100;
+  game.solarCellsCollected = 0;
+
   game.maxSolarChargers = 300;
   game.numSolarChargesComputers = 5;
-  game.solarCellsCollected = 0;
-  game.maxSolarCells = 100;
-  game.targetFPS = 60;
+
   game.battery = 0;
+
+  game.mapSize = 1000;
+  game.targetFPS = 60;
   game.paused = false;
   game.isQuitting = false;
 
