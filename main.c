@@ -86,6 +86,14 @@ void initializeSolarChargers(Game *game) {
 
 void buildSolarCharger(Game *game, Vector2 position, int size) {
 
+  if (game->solarCellsCollected < size * 10) {
+    return;
+  }
+
+  pthread_mutex_lock(&game->solarCellsMutex);
+  game->solarCellsCollected -= size * 10;
+  pthread_mutex_unlock(&game->solarCellsMutex);
+
   for (int i = 0; i < game->maxSolarChargers; i++) {
     if (!game->solarChargers[i].active) {
       game->solarChargers[i].active = true;
@@ -208,6 +216,7 @@ void initializeSolarCells(Game *game) {
 
 void addSolarCell(Game *game, Vector2 position) {
 
+  pthread_mutex_lock(&game->solarCellsMutex);
   for (int i = 0; i < game->maxSolarCells; i++) {
 
     if (!game->solarCells[i].active) {
@@ -217,6 +226,7 @@ void addSolarCell(Game *game, Vector2 position) {
       break;
     }
   }
+  pthread_mutex_unlock(&game->solarCellsMutex);
 }
 
 void generateSolarCells(Game *game) {
@@ -242,6 +252,33 @@ void drawSolarCells(Game *game) {
     }
   }
 }
+
+void removeSolarCell(Game *game, int cellIndex) {
+
+  game->solarCells[cellIndex].active = false;
+}
+
+void collectSolarCells(Game *game, Player *player) {
+  // Check collision against all cells with player
+
+  pthread_mutex_lock(&game->solarCellsMutex);
+  for (int i = 0; i < game->maxSolarCells; i++) {
+    if (game->solarCells[i].active &&
+        CheckCollisionRecs((Rectangle){player->position.x, player->position.y,
+                                       player->size, player->size},
+                           (Rectangle){game->solarCells[i].position.x,
+                                       game->solarCells[i].position.y,
+                                       game->solarCells[i].size,
+                                       game->solarCells[i].size})) {
+
+      // Remove Solar Cell
+      game->solarCellsCollected++;
+      removeSolarCell(game, i);
+      printf("REMOVING SOLAR CELL\n");
+    }
+  }
+  pthread_mutex_unlock(&game->solarCellsMutex);
+};
 
 void drawEnemies(Game *game) {
   // Drawing all enemies
@@ -419,12 +456,14 @@ void *updatePlayer(void *arg) {
     if (IsKeyDown(controls[controlScheme][3]))
       direction.x = 1; // Right
 
+    // Build Solar Charger Small
     if (IsKeyPressed(controls[controlScheme][5])) {
       pthread_mutex_lock(&viewport->player->mutex);
       buildSolarCharger(game, viewport->player->position, 1);
       pthread_mutex_unlock(&viewport->player->mutex);
     }
 
+    // Build Solar Charger Large
     if (IsKeyPressed(controls[controlScheme][6])) {
       pthread_mutex_lock(&viewport->player->mutex);
       buildSolarCharger(game, viewport->player->position, 2);
@@ -433,7 +472,10 @@ void *updatePlayer(void *arg) {
 
     // Shoot action
     if (IsKeyPressed(controls[controlScheme][4])) {
-      if (game->battery > 1) {
+
+      float enemyHealth = 0.1;
+
+      if (game->battery > enemyHealth) {
 
         pthread_mutex_lock(&viewport->player->mutex);
         int closestEnemy =
@@ -444,7 +486,7 @@ void *updatePlayer(void *arg) {
           pthread_mutex_lock(&game->batteryMutex);
 
           killEnemy(game, closestEnemy);
-          game->battery--;
+          game->battery -= enemyHealth;
 
           pthread_mutex_unlock(&game->batteryMutex);
         }
@@ -464,6 +506,9 @@ void *updatePlayer(void *arg) {
         }
       }
     }
+
+    // Check if solar cell collected
+    collectSolarCells(game, viewport->player);
 
     // Apply movement if game isn't paused
     if (!game->paused && (direction.x != 0 || direction.y != 0)) {
@@ -590,10 +635,10 @@ void draw(Game *game) {
            GetScreenHeight() * 0.03 + enemiesAliveFontSize, batteryFontSize,
            WHITE);
 
-  // Draw Solar Cells
+  // Draw Solar Cells Collected
 
   char solarCellsText[128];
-  sprintf(solarCellsText, "Solar Cells: %d", game->maxSolarCells);
+  sprintf(solarCellsText, "Solar Cells: %d", game->solarCellsCollected);
   int solarCellsFontSize = 25;
 
   DrawText(solarCellsText, GetScreenWidth() * 0.01,
@@ -632,6 +677,7 @@ int main(int argc, char **args) {
   game.solarCells = 0;
   game.maxSolarChargers = 300;
   game.numSolarChargesComputers = 5;
+  game.solarCellsCollected = 0;
   game.maxSolarCells = 100;
   game.targetFPS = 60;
   game.battery = 0;
@@ -647,6 +693,7 @@ int main(int argc, char **args) {
   pthread_mutex_init(&game.frameCountMutex, NULL);
   pthread_mutex_init(&game.enemyCountMutex, NULL);
   pthread_mutex_init(&game.batteryMutex, NULL);
+  pthread_mutex_init(&game.solarCellsMutex, NULL);
 
   SetTargetFPS(game.targetFPS);
 

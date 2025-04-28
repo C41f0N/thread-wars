@@ -63,8 +63,10 @@ typedef struct {
   Enemy *enemies;
   int maxEnemies;
 
+  int solarCellsCollected;
   int maxSolarCells;
   SolarCell *solarCells;
+  pthread_mutex_t solarCellsMutex;
 
   SolarCharger *solarChargers;
   pthread_t *solarChargesComputingThreads;
