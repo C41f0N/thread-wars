@@ -45,6 +45,12 @@ typedef struct {
   bool active;
 } SolarCell;
 
+// Wave Struct
+typedef struct {
+  int numEnemies; // number of enemies to spawn
+  int waitTime;   // time in seconds before enemies are spawned
+} EnemyWave;
+
 // Game Struct
 typedef struct {
   bool paused;
@@ -52,6 +58,11 @@ typedef struct {
   int targetFPS;
   int mapSize;
   bool gameOver;
+
+  int numWaves;
+  EnemyWave *waves;
+
+  int lastWaveFrame, currentWave;
 
   int frameCount;
   pthread_mutex_t frameCountMutex;

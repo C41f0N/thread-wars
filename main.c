@@ -156,14 +156,28 @@ void initializeEnemies(Game *game) {
   for (int i = 0; i < game->maxEnemies; i++) {
     game->enemies[i].size = 30;
     game->enemies[i].color = RED;
-    game->enemies[i].active = i < game->enemyCount;
+    game->enemies[i].active = false;
     game->enemies[i].damage = 5;
     game->enemies[i].speed = (100 + (rand() % 101)) / game->targetFPS;
     game->enemies[i].position = (Vector2){((rand() % range) - (float)range / 2),
                                           (rand() % range) - (float)range / 2};
   }
+}
 
-  // Activate fixed number of enemies
+void initializeWaves(Game *game) {
+  game->waves = calloc(sizeof(EnemyWave), game->numWaves);
+
+  // Setting up waves
+  game->waves[0].numEnemies = 10;
+  game->waves[0].waitTime = 10;
+
+  game->waves[1].numEnemies = 30;
+  game->waves[1].waitTime = 20;
+
+  game->waves[2].numEnemies = 50;
+  game->waves[2].waitTime = 30;
+
+  game->lastWaveFrame = 0;
 }
 
 // Function to create and initialize viewports
@@ -399,9 +413,9 @@ void addEnemies(Game *game, int n) {
       game->enemies[i].color = RED;
       game->enemies[i].damage = 5;
       game->enemies[i].speed = 200 / game->targetFPS;
-      game->enemies[i].position = (Vector2){
-          ((rand() % GetScreenWidth()) - (float)GetScreenWidth() / 2),
-          (rand() % GetScreenHeight()) - (float)GetScreenHeight() / 2};
+      game->enemies[i].position =
+          (Vector2){((rand() % game->mapSize) - (float)game->mapSize / 2),
+                    (rand() % game->mapSize) - (float)game->mapSize / 2};
       game->enemyCount++;
       n--;
     }
@@ -410,6 +424,20 @@ void addEnemies(Game *game, int n) {
   }
 
   pthread_mutex_unlock(&game->enemyCountMutex);
+}
+
+void generateEnemies(Game *game) {
+  printf("HERE\n");
+  if (game->currentWave < game->numWaves - 1 &&
+      game->frameCount - game->lastWaveFrame >
+          game->waves[game->currentWave].waitTime * game->targetFPS) {
+    printf("AND HERE\n");
+    // Unleash the enemies for this wave
+    game->currentWave++;
+
+    addEnemies(game, game->waves[game->currentWave].numEnemies);
+    game->lastWaveFrame = game->frameCount;
+  }
 }
 
 void killEnemy(Game *game, int enemyIndex) {
@@ -692,7 +720,6 @@ void draw(Game *game) {
            WHITE);
 
   // Draw Solar Cells Collected
-
   char solarCellsText[128];
   sprintf(solarCellsText, "Solar Cells: %d", game->solarCellsCollected);
   int solarCellsFontSize = 25;
@@ -700,6 +727,19 @@ void draw(Game *game) {
   DrawText(solarCellsText, GetScreenWidth() * 0.01,
            GetScreenHeight() * 0.06 + solarCellsFontSize, solarCellsFontSize,
            WHITE);
+
+  // Draw Time to next wave
+  char timeToNextWaveText[128];
+  sprintf(timeToNextWaveText, "Time to next wave: %ds",
+          ((game->waves[game->currentWave].waitTime * game->targetFPS +
+            game->lastWaveFrame) -
+           game->frameCount) /
+              game->targetFPS);
+  int timeToNextWaveFontSize = 25;
+
+  DrawText(timeToNextWaveText, GetScreenWidth() * 0.01,
+           GetScreenHeight() * 0.09 + timeToNextWaveFontSize,
+           timeToNextWaveFontSize, WHITE);
 }
 
 void killViewports(Game *game) {
@@ -730,7 +770,7 @@ int main(int argc, char **args) {
   game.playerCount = 2;
 
   game.maxEnemies = 300;
-  game.enemyCount = 50;
+  game.enemyCount = 0;
 
   game.solarCells = 0;
   game.maxSolarCells = 100;
@@ -742,11 +782,16 @@ int main(int argc, char **args) {
   game.battery = 0;
 
   game.mapSize = 1000;
+
   game.targetFPS = 60;
   game.paused = false;
   game.isQuitting = false;
   game.gameOver = false;
 
+  game.numWaves = 3;
+  game.currentWave = 0;
+
+  initializeWaves(&game);
   initializePlayers(&game);
   initializeEnemies(&game);
   initializeSolarChargers(&game);
@@ -792,12 +837,14 @@ int main(int argc, char **args) {
 
     // Update
     if (!game.paused) {
-      updateEnemies(&game);
-    }
+      generateEnemies(&game);
 
-    pthread_mutex_lock(&game.frameCountMutex);
-    game.frameCount++;
-    pthread_mutex_unlock(&game.frameCountMutex);
+      updateEnemies(&game);
+
+      pthread_mutex_lock(&game.frameCountMutex);
+      game.frameCount++;
+      pthread_mutex_unlock(&game.frameCountMutex);
+    }
 
     BeginDrawing();
     // Drawing everything to screen
