@@ -50,6 +50,8 @@ typedef struct {
   bool paused;
   bool isQuitting;
   int targetFPS;
+  int mapSize;
+  bool gameOver;
 
   int frameCount;
   pthread_mutex_t frameCountMutex;

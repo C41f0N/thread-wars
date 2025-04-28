@@ -585,6 +585,15 @@ void drawBorders(Game *game) {
             (Vector2){-(float)game->mapSize, +(float)game->mapSize}, WHITE);
 }
 
+void handleGameOver(Game *game) {
+  for (int i = 0; i < game->playerCount; i++) {
+    if (game->players[i].health < 0) {
+      game->paused = true;
+      game->gameOver = true;
+    }
+  }
+}
+
 void draw(Game *game) {
 
   // Drawing on every viewport
@@ -736,6 +745,7 @@ int main(int argc, char **args) {
   game.targetFPS = 60;
   game.paused = false;
   game.isQuitting = false;
+  game.gameOver = false;
 
   initializePlayers(&game);
   initializeEnemies(&game);
@@ -768,7 +778,9 @@ int main(int argc, char **args) {
 
     // Pausing
     if (IsKeyPressed(KEY_P)) {
-      game.paused = !game.paused;
+      if (!game.gameOver) {
+        game.paused = !game.paused;
+      }
     }
 
     // Adding enemies
@@ -776,10 +788,13 @@ int main(int argc, char **args) {
       addEnemies(&game, 5);
     }
 
+    handleGameOver(&game);
+
     // Update
     if (!game.paused) {
       updateEnemies(&game);
     }
+
     pthread_mutex_lock(&game.frameCountMutex);
     game.frameCount++;
     pthread_mutex_unlock(&game.frameCountMutex);
@@ -788,9 +803,19 @@ int main(int argc, char **args) {
     // Drawing everything to screen
     draw(&game);
 
-    if (game.paused) {
+    if (game.paused && !game.gameOver) {
       DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
       char enemiesAliveText[] = "PAUSED";
+      int fontSize = GetScreenHeight() * 0.05;
+      DrawText(enemiesAliveText,
+               GetScreenWidth() / 2 -
+                   MeasureText(enemiesAliveText, fontSize) / 2,
+               GetScreenHeight() / 2 - fontSize / 2, fontSize, WHITE);
+    }
+
+    if (game.gameOver) {
+      DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
+      char enemiesAliveText[] = "GAME OVER :(";
       int fontSize = GetScreenHeight() * 0.05;
       DrawText(enemiesAliveText,
                GetScreenWidth() / 2 -
