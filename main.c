@@ -39,11 +39,10 @@ void *computeSolarChargers(void *arg) {
          i++) {
       if (game->solarChargers[i].active) {
 
-        printf("HERE %d", j);
         // Get charge value
         float chargeValue = ((float)(game->solarChargers[i].height *
                                      game->solarChargers[i].width) /
-                             10000) /
+                             100000) /
                             game->targetFPS;
 
         // Charge the battery
@@ -197,6 +196,53 @@ void initializeViewports(Game *game) {
   }
 }
 
+void initializeSolarCells(Game *game) {
+  game->solarCells = calloc(game->maxSolarCells, sizeof(SolarCell));
+
+  for (int i = 0; i < game->maxSolarCells; i++) {
+    game->solarCells[i].active = false;
+    game->solarCells[i].position = (Vector2){0, 0};
+    game->solarCells[i].size = 0;
+  }
+}
+
+void addSolarCell(Game *game, Vector2 position) {
+
+  for (int i = 0; i < game->maxSolarCells; i++) {
+
+    if (!game->solarCells[i].active) {
+      game->solarCells[i].active = true;
+      game->solarCells[i].position = position;
+      game->solarCells[i].size = 20;
+      break;
+    }
+  }
+}
+
+void generateSolarCells(Game *game) {
+  // Generate n solar cells in random places
+  int n = 20;
+  int radius = 1000;
+  for (int i = 0; i < n; i++) {
+    addSolarCell(game, (Vector2){(rand() % radius) - (float)radius / 2,
+                                 (rand() % 1000) - (float)radius / 2});
+  }
+}
+
+void drawSolarCells(Game *game) {
+  for (int i = 0; i < game->maxSolarCells; i++) {
+    if (game->solarCells[i].active) {
+      DrawRectangleRounded((Rectangle){game->solarCells[i].position.x +
+                                           (float)game->solarCells[i].size / 2,
+                                       game->solarCells[i].position.y +
+                                           (float)game->solarCells[i].size / 2,
+                                       game->solarCells[i].size,
+                                       game->solarCells[i].size},
+                           1, 1, GREEN);
+    }
+  }
+}
+
 void drawEnemies(Game *game) {
   // Drawing all enemies
   for (int i = 0; i < game->maxEnemies; i++) {
@@ -206,7 +252,7 @@ void drawEnemies(Game *game) {
               game->enemies[i].position.x + (float)game->enemies[i].size / 2,
               game->enemies[i].position.y + (float)game->enemies[i].size / 2,
               game->enemies[i].size, game->enemies[i].size},
-          0.5, 1, game->enemies[i].color);
+          1, 1, game->enemies[i].color);
     }
   }
 }
@@ -387,17 +433,21 @@ void *updatePlayer(void *arg) {
 
     // Shoot action
     if (IsKeyPressed(controls[controlScheme][4])) {
-      pthread_mutex_lock(&viewport->player->mutex);
-      int closestEnemy = getClosestEnemyIndex(game, viewport->player->position);
-      pthread_mutex_unlock(&viewport->player->mutex);
+      if (game->battery > 1) {
 
-      if (closestEnemy != -1) {
-        pthread_mutex_lock(&game->batteryMutex);
-        if (game->battery > 0) {
+        pthread_mutex_lock(&viewport->player->mutex);
+        int closestEnemy =
+            getClosestEnemyIndex(game, viewport->player->position);
+        pthread_mutex_unlock(&viewport->player->mutex);
+
+        if (closestEnemy != -1) {
+          pthread_mutex_lock(&game->batteryMutex);
+
           killEnemy(game, closestEnemy);
           game->battery--;
+
+          pthread_mutex_unlock(&game->batteryMutex);
         }
-        pthread_mutex_unlock(&game->batteryMutex);
       }
     }
 
@@ -472,6 +522,9 @@ void draw(Game *game) {
     // Draw all enemies
     drawEnemies(game);
 
+    // Draw solar cells
+    drawSolarCells(game);
+
     // Drawing all players
     drawPlayers(game);
 
@@ -525,23 +578,26 @@ void draw(Game *game) {
   sprintf(enemiesAliveText, "Enemies Alive: %d", enemiesLeft);
   int enemiesAliveFontSize = 25;
 
-  DrawText(enemiesAliveText,
-           GetScreenWidth() / 2 -
-               MeasureText(enemiesAliveText, enemiesAliveFontSize) / 2,
-           GetScreenHeight() * 0.01, enemiesAliveFontSize, WHITE);
+  DrawText(enemiesAliveText, GetScreenWidth() * 0.01, GetScreenHeight() * 0.02,
+           enemiesAliveFontSize, WHITE);
 
   // Draw battery left
-  pthread_mutex_lock(&game->batteryMutex);
-  int battery = game->battery;
-  pthread_mutex_unlock(&game->batteryMutex);
-
   char batteryText[128];
-  sprintf(batteryText, "Battery: %d", battery);
+  sprintf(batteryText, "Battery: %.1f Volts", game->battery);
   int batteryFontSize = 25;
 
-  DrawText(batteryText,
-           GetScreenWidth() / 2 - MeasureText(batteryText, batteryFontSize) / 2,
-           GetScreenHeight() * 0.01 + enemiesAliveFontSize, batteryFontSize,
+  DrawText(batteryText, GetScreenWidth() * 0.01,
+           GetScreenHeight() * 0.03 + enemiesAliveFontSize, batteryFontSize,
+           WHITE);
+
+  // Draw Solar Cells
+
+  char solarCellsText[128];
+  sprintf(solarCellsText, "Solar Cells: %d", game->maxSolarCells);
+  int solarCellsFontSize = 25;
+
+  DrawText(solarCellsText, GetScreenWidth() * 0.01,
+           GetScreenHeight() * 0.06 + solarCellsFontSize, solarCellsFontSize,
            WHITE);
 }
 
@@ -571,12 +627,14 @@ int main(int argc, char **args) {
   Game game;
 
   game.playerCount = 2;
-  game.maxEnemies = 100;
+  game.maxEnemies = 300;
   game.enemyCount = 50;
-  game.maxSolarChargers = 10;
+  game.solarCells = 0;
+  game.maxSolarChargers = 300;
   game.numSolarChargesComputers = 5;
+  game.maxSolarCells = 100;
   game.targetFPS = 60;
-  game.battery = 100;
+  game.battery = 0;
   game.paused = false;
   game.isQuitting = false;
 
@@ -584,6 +642,7 @@ int main(int argc, char **args) {
   initializeEnemies(&game);
   initializeSolarChargers(&game);
   initializeViewports(&game);
+  initializeSolarCells(&game);
 
   pthread_mutex_init(&game.frameCountMutex, NULL);
   pthread_mutex_init(&game.enemyCountMutex, NULL);
@@ -601,6 +660,11 @@ int main(int argc, char **args) {
   }
 
   while (!WindowShouldClose()) {
+
+    if (game.frameCount % (game.targetFPS * 5) == 0) {
+      printf("GENERATED SOLAR CELLS\n");
+      generateSolarCells(&game);
+    }
 
     // Pausing
     if (IsKeyPressed(KEY_P)) {
@@ -637,12 +701,14 @@ int main(int argc, char **args) {
     EndDrawing();
   }
 
-  killViewports(&game);
+  game.isQuitting = true;
 
-  // killSolarChargerComputers
-  for (int i = 0; i < game.numSolarChargesComputers; i++) {
-    pthread_join(*game.solarChargesComputingThreads, NULL);
-  }
+  // // killSolarChargerComputers
+  // for (int i = 0; i < game.numSolarChargesComputers; i++) {
+  //   pthread_join(*game.solarChargesComputingThreads, NULL);
+  // }
+
+  // killViewports(&game);
 
   CloseWindow();
 

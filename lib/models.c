@@ -39,6 +39,12 @@ typedef struct {
   pthread_t thread;
 } Viewport;
 
+typedef struct {
+  Vector2 position;
+  int size;
+  bool active;
+} SolarCell;
+
 // Game Struct
 typedef struct {
   bool paused;
@@ -56,6 +62,9 @@ typedef struct {
 
   Enemy *enemies;
   int maxEnemies;
+
+  int maxSolarCells;
+  SolarCell *solarCells;
 
   SolarCharger *solarChargers;
   pthread_t *solarChargesComputingThreads;
