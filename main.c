@@ -17,7 +17,8 @@ int controls[3][7] = {
     {KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT, KEY_ENTER, KEY_MINUS, KEY_EQUAL},
 };
 
-void *computeSolarChargers(void *arg) {
+void *computeSolarChargers(void *arg)
+{
 
   Game *game = ((SolarChargingComputerThreadArgument *)(arg))->game;
   int j =
@@ -26,8 +27,10 @@ void *computeSolarChargers(void *arg) {
 
   int localFrameCount = -1;
 
-  while (true) {
-    if (localFrameCount == game->frameCount) {
+  while (true)
+  {
+    if (localFrameCount == game->frameCount)
+    {
       continue;
     }
 
@@ -36,8 +39,10 @@ void *computeSolarChargers(void *arg) {
     for (int i = j * (game->maxSolarChargers / game->numSolarChargesComputers);
          i <
          (j + 1) * (game->maxSolarChargers / game->numSolarChargesComputers);
-         i++) {
-      if (game->solarChargers[i].active) {
+         i++)
+    {
+      if (game->solarChargers[i].active)
+      {
 
         // Get charge value
         float chargeValue = ((float)(game->solarChargers[i].height *
@@ -52,16 +57,19 @@ void *computeSolarChargers(void *arg) {
       }
     }
 
-    if (game->isQuitting) {
+    if (game->isQuitting)
+    {
       pthread_exit(NULL);
     }
   }
 }
 
-void initializeSolarChargers(Game *game) {
+void initializeSolarChargers(Game *game)
+{
   game->solarChargers = calloc(game->maxSolarChargers, sizeof(SolarCharger));
 
-  for (int i = 0; i < game->maxSolarChargers; i++) {
+  for (int i = 0; i < game->maxSolarChargers; i++)
+  {
     game->solarChargers[i].active = false;
     game->solarChargers[i].height = 0;
     game->solarChargers[i].width = 0;
@@ -72,7 +80,8 @@ void initializeSolarChargers(Game *game) {
       (pthread_t *)calloc(game->numSolarChargesComputers, sizeof(pthread_t));
 
   // Start computing threads for solar charges
-  for (int i = 0; i < game->numSolarChargesComputers; i++) {
+  for (int i = 0; i < game->numSolarChargesComputers; i++)
+  {
 
     SolarChargingComputerThreadArgument *arg =
         malloc(sizeof(SolarChargingComputerThreadArgument));
@@ -84,9 +93,11 @@ void initializeSolarChargers(Game *game) {
   }
 }
 
-void buildSolarCharger(Game *game, Vector2 position, int size) {
+void buildSolarCharger(Game *game, Vector2 position, int size)
+{
 
-  if (game->solarCellsCollected < size * 10) {
+  if (game->solarCellsCollected < size * 10)
+  {
     return;
   }
 
@@ -94,8 +105,10 @@ void buildSolarCharger(Game *game, Vector2 position, int size) {
   game->solarCellsCollected -= size * 10;
   pthread_mutex_unlock(&game->solarCellsMutex);
 
-  for (int i = 0; i < game->maxSolarChargers; i++) {
-    if (!game->solarChargers[i].active) {
+  for (int i = 0; i < game->maxSolarChargers; i++)
+  {
+    if (!game->solarChargers[i].active)
+    {
       game->solarChargers[i].active = true;
       game->solarChargers[i].height = 100;
       game->solarChargers[i].width = size * 100;
@@ -106,12 +119,52 @@ void buildSolarCharger(Game *game, Vector2 position, int size) {
   }
 }
 
-void initializePlayers(Game *game) {
+// void initializePlayers(Game *game)
+// {
+//   Color playerColors[] = {YELLOW, BLUE, GREEN, PINK};
+
+//   game->players = (Player *)calloc(sizeof(Player), game->playerCount);
+
+//   for (int i = 0; i < game->playerCount; i++)
+//   {
+//     game->players[i].size = 50;
+//     game->players[i].speed = (float)600 / game->targetFPS;
+//     game->players[i].health = 100;
+//     game->players[i].color = playerColors[i % game->playerCount];
+//     game->players[i].position =
+//         (Vector2){0 + i * (20 + game->players[i].size), 0};
+
+//     // Initializing mutexes
+//     for (int j = 0; j < game->playerCount; j++)
+//     {
+//       if (pthread_mutex_init(&game->players[j].mutex, NULL))
+//       {
+//         exit(0);
+//       };
+//     }
+//   }
+// }
+
+// In initializePlayers function:
+void initializePlayers(Game *game)
+{
   Color playerColors[] = {YELLOW, BLUE, GREEN, PINK};
 
   game->players = (Player *)calloc(sizeof(Player), game->playerCount);
 
-  for (int i = 0; i < game->playerCount; i++) {
+  // Load player textures - make sure the path is correct
+  game->playerTextures[0] = LoadTexture("assets/player1.jpeg");
+  game->playerTextures[1] = LoadTexture("assets/player2.jpeg");
+
+  // Verify textures loaded correctly
+  if (game->playerTextures[0].id == 0 || game->playerTextures[1].id == 0)
+  {
+    printf("ERROR: Failed to load player textures!\n");
+    exit(1);
+  }
+
+  for (int i = 0; i < game->playerCount; i++)
+  {
     game->players[i].size = 50;
     game->players[i].speed = (float)600 / game->targetFPS;
     game->players[i].health = 100;
@@ -119,26 +172,31 @@ void initializePlayers(Game *game) {
     game->players[i].position =
         (Vector2){0 + i * (20 + game->players[i].size), 0};
 
-    // Initializing mutexes
-    for (int j = 0; j < game->playerCount; j++) {
-      if (pthread_mutex_init(&game->players[j].mutex, NULL)) {
+    for (int j = 0; j < game->playerCount; j++)
+    {
+      if (pthread_mutex_init(&game->players[j].mutex, NULL))
+      {
         exit(0);
       };
     }
   }
 }
 
-int getClosestEnemyIndex(Game *game, Vector2 from) {
+int getClosestEnemyIndex(Game *game, Vector2 from)
+{
   float shortestDistance = INT_MAX;
   int closestEnemyIndex = -1;
 
-  for (int i = 0; i < game->maxEnemies; i++) {
-    if (game->enemies[i].active) {
+  for (int i = 0; i < game->maxEnemies; i++)
+  {
+    if (game->enemies[i].active)
+    {
 
       float distance =
           getDistanceBetweenVectors(game->enemies[i].position, from);
 
-      if (distance < shortestDistance) {
+      if (distance < shortestDistance)
+      {
         shortestDistance = distance;
         closestEnemyIndex = i;
       }
@@ -148,12 +206,14 @@ int getClosestEnemyIndex(Game *game, Vector2 from) {
   return closestEnemyIndex;
 }
 
-void initializeEnemies(Game *game) {
+void initializeEnemies(Game *game)
+{
   game->enemies = calloc(game->maxEnemies, sizeof(Enemy));
 
   int range = (int)(GetScreenWidth() / game->playerCount);
 
-  for (int i = 0; i < game->maxEnemies; i++) {
+  for (int i = 0; i < game->maxEnemies; i++)
+  {
     game->enemies[i].size = 30;
     game->enemies[i].color = RED;
     game->enemies[i].active = false;
@@ -164,7 +224,8 @@ void initializeEnemies(Game *game) {
   }
 }
 
-void initializeWaves(Game *game) {
+void initializeWaves(Game *game)
+{
   game->waves = calloc(sizeof(EnemyWave), game->numWaves);
 
   // Setting up waves
@@ -181,7 +242,8 @@ void initializeWaves(Game *game) {
 }
 
 // Function to create and initialize viewports
-void initializeViewports(Game *game) {
+void initializeViewports(Game *game)
+{
 
   // Allocating in memory
   RenderTexture2D *renderTextures =
@@ -193,11 +255,13 @@ void initializeViewports(Game *game) {
   sem_init(&game->viewports[0].inputSemaphore, 0, 1);
 
   // Initializing the rest as inactive
-  for (int i = 1; i < game->playerCount; i++) {
+  for (int i = 1; i < game->playerCount; i++)
+  {
     sem_init(&game->viewports[i].inputSemaphore, 0, 0);
   }
 
-  for (int i = 0; i < game->playerCount; i++) {
+  for (int i = 0; i < game->playerCount; i++)
+  {
     // Creating render textures
     renderTextures[i] = LoadRenderTexture(GetScreenWidth() / game->playerCount,
                                           GetScreenHeight());
@@ -218,22 +282,27 @@ void initializeViewports(Game *game) {
   }
 }
 
-void initializeSolarCells(Game *game) {
+void initializeSolarCells(Game *game)
+{
   game->solarCells = calloc(game->maxSolarCells, sizeof(SolarCell));
 
-  for (int i = 0; i < game->maxSolarCells; i++) {
+  for (int i = 0; i < game->maxSolarCells; i++)
+  {
     game->solarCells[i].active = false;
     game->solarCells[i].position = (Vector2){0, 0};
     game->solarCells[i].size = 0;
   }
 }
 
-void addSolarCell(Game *game, Vector2 position) {
+void addSolarCell(Game *game, Vector2 position)
+{
 
   pthread_mutex_lock(&game->solarCellsMutex);
-  for (int i = 0; i < game->maxSolarCells; i++) {
+  for (int i = 0; i < game->maxSolarCells; i++)
+  {
 
-    if (!game->solarCells[i].active) {
+    if (!game->solarCells[i].active)
+    {
       game->solarCells[i].active = true;
       game->solarCells[i].position = position;
       game->solarCells[i].size = 20;
@@ -243,19 +312,24 @@ void addSolarCell(Game *game, Vector2 position) {
   pthread_mutex_unlock(&game->solarCellsMutex);
 }
 
-void generateSolarCells(Game *game) {
+void generateSolarCells(Game *game)
+{
   // Generate n solar cells in random places
   int n = 20;
   int radius = game->mapSize;
-  for (int i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++)
+  {
     addSolarCell(game, (Vector2){(rand() % radius * 2) - game->mapSize,
                                  (rand() % game->mapSize * 2) - game->mapSize});
   }
 }
 
-void drawSolarCells(Game *game) {
-  for (int i = 0; i < game->maxSolarCells; i++) {
-    if (game->solarCells[i].active) {
+void drawSolarCells(Game *game)
+{
+  for (int i = 0; i < game->maxSolarCells; i++)
+  {
+    if (game->solarCells[i].active)
+    {
       DrawRectangleRounded((Rectangle){game->solarCells[i].position.x -
                                            (float)game->solarCells[i].size / 2,
                                        game->solarCells[i].position.y -
@@ -267,16 +341,19 @@ void drawSolarCells(Game *game) {
   }
 }
 
-void removeSolarCell(Game *game, int cellIndex) {
+void removeSolarCell(Game *game, int cellIndex)
+{
 
   game->solarCells[cellIndex].active = false;
 }
 
-void collectSolarCells(Game *game, Player *player) {
+void collectSolarCells(Game *game, Player *player)
+{
   // Check collision against all cells with player
 
   pthread_mutex_lock(&game->solarCellsMutex);
-  for (int i = 0; i < game->maxSolarCells; i++) {
+  for (int i = 0; i < game->maxSolarCells; i++)
+  {
     if (game->solarCells[i].active &&
         CheckCollisionRecs(
             (Rectangle){player->position.x - (float)player->size / 2,
@@ -286,7 +363,8 @@ void collectSolarCells(Game *game, Player *player) {
                             (float)game->solarCells[i].size / 2,
                         game->solarCells[i].position.y -
                             (float)game->solarCells[i].size / 2,
-                        game->solarCells[i].size, game->solarCells[i].size})) {
+                        game->solarCells[i].size, game->solarCells[i].size}))
+    {
 
       // Remove Solar Cell
       game->solarCellsCollected++;
@@ -297,10 +375,13 @@ void collectSolarCells(Game *game, Player *player) {
   pthread_mutex_unlock(&game->solarCellsMutex);
 };
 
-void drawEnemies(Game *game) {
+void drawEnemies(Game *game)
+{
   // Drawing all enemies
-  for (int i = 0; i < game->maxEnemies; i++) {
-    if (game->enemies[i].active) {
+  for (int i = 0; i < game->maxEnemies; i++)
+  {
+    if (game->enemies[i].active)
+    {
       DrawRectangleRounded(
           (Rectangle){
               game->enemies[i].position.x - (float)game->enemies[i].size / 2,
@@ -311,9 +392,12 @@ void drawEnemies(Game *game) {
   }
 }
 
-void drawSolarChargers(Game *game) {
-  for (int i = 0; i < game->maxSolarChargers; i++) {
-    if (game->solarChargers[i].active) {
+void drawSolarChargers(Game *game)
+{
+  for (int i = 0; i < game->maxSolarChargers; i++)
+  {
+    if (game->solarChargers[i].active)
+    {
       DrawRectangleRounded(
           (Rectangle){game->solarChargers[i].position.x -
                           (float)game->solarChargers[i].width / 4,
@@ -326,8 +410,10 @@ void drawSolarChargers(Game *game) {
   }
 }
 
-void updateEnemies(Game *game) {
-  for (int i = 0; i < game->maxEnemies; i++) {
+void updateEnemies(Game *game)
+{
+  for (int i = 0; i < game->maxEnemies; i++)
+  {
     // Skip inactive enemies
     if (!game->enemies[i].active)
       continue;
@@ -335,13 +421,15 @@ void updateEnemies(Game *game) {
     Player *closestPlayer = NULL;
     float shortestDistance = INT_MAX;
 
-    for (int j = 0; j < game->playerCount; j++) {
+    for (int j = 0; j < game->playerCount; j++)
+    {
       pthread_mutex_lock(&game->players[j].mutex);
 
       float distance = getDistanceBetweenVectors(game->enemies[i].position,
                                                  game->players[j].position);
 
-      if (distance < shortestDistance) {
+      if (distance < shortestDistance)
+      {
         shortestDistance = distance;
         closestPlayer = &game->players[j];
       }
@@ -349,7 +437,8 @@ void updateEnemies(Game *game) {
     };
 
     // if close enough to player, stop and give him damage
-    if (shortestDistance < (float)closestPlayer->size) {
+    if (shortestDistance < (float)closestPlayer->size)
+    {
       pthread_mutex_lock(&closestPlayer->mutex);
       closestPlayer->health -= (float)game->enemies[i].damage / game->targetFPS;
       pthread_mutex_unlock(&closestPlayer->mutex);
@@ -369,7 +458,8 @@ void updateEnemies(Game *game) {
 
     // Check for collision with other enemies
     bool colliding = false;
-    for (int j = 0; j < game->maxEnemies; j++) {
+    for (int j = 0; j < game->maxEnemies; j++)
+    {
 
       // Skip inactive enemies
       if (!game->enemies[j].active)
@@ -378,7 +468,8 @@ void updateEnemies(Game *game) {
       if (i != j &&
           CheckCollisionCircles(
               game->enemies[i].position, (float)game->enemies[i].size * 0.55,
-              game->enemies[j].position, (float)game->enemies[j].size * 0.55)) {
+              game->enemies[j].position, (float)game->enemies[j].size * 0.55))
+      {
         // If collission is detected, push the current enemy in the opposite
         // direction as the player
         colliding = true;
@@ -394,20 +485,24 @@ void updateEnemies(Game *game) {
       }
     }
     // Undo the move made earlier if colliding
-    if (colliding) {
+    if (colliding)
+    {
       game->enemies[i].position.x -= velocity.x;
       game->enemies[i].position.y -= velocity.y;
     }
   }
 }
 
-void addEnemies(Game *game, int n) {
+void addEnemies(Game *game, int n)
+{
   int i = 0;
   pthread_mutex_lock(&game->enemyCountMutex);
   while (n > 0 && game->enemyCount <= game->maxEnemies &&
-         i < game->maxEnemies) {
+         i < game->maxEnemies)
+  {
 
-    if (!game->enemies[i].active) {
+    if (!game->enemies[i].active)
+    {
       game->enemies[i].active = true;
       game->enemies[i].size = 30;
       game->enemies[i].color = RED;
@@ -426,11 +521,13 @@ void addEnemies(Game *game, int n) {
   pthread_mutex_unlock(&game->enemyCountMutex);
 }
 
-void generateEnemies(Game *game) {
+void generateEnemies(Game *game)
+{
   printf("HERE\n");
   if (game->currentWave < game->numWaves - 1 &&
       game->frameCount - game->lastWaveFrame >
-          game->waves[game->currentWave].waitTime * game->targetFPS) {
+          game->waves[game->currentWave].waitTime * game->targetFPS)
+  {
     printf("AND HERE\n");
     // Unleash the enemies for this wave
     game->currentWave++;
@@ -440,14 +537,16 @@ void generateEnemies(Game *game) {
   }
 }
 
-void killEnemy(Game *game, int enemyIndex) {
+void killEnemy(Game *game, int enemyIndex)
+{
   game->enemies[enemyIndex].active = false;
   pthread_mutex_lock(&game->enemyCountMutex);
   game->enemyCount--;
   pthread_mutex_unlock(&game->enemyCountMutex);
 }
 
-void *updatePlayer(void *arg) {
+void *updatePlayer(void *arg)
+{
   ViewportThreadArgument *args = (ViewportThreadArgument *)arg;
   Game *game = args->game;
   int viewportIndex = args->viewportIndex;
@@ -455,7 +554,8 @@ void *updatePlayer(void *arg) {
   int localFrameCount = -1;
   free(arg);
 
-  while (!game->isQuitting) {
+  while (!game->isQuitting)
+  {
     // Wait for this thread's turn
     sem_wait(&viewport->inputSemaphore);
 
@@ -465,7 +565,8 @@ void *updatePlayer(void *arg) {
     pthread_mutex_unlock(&game->frameCountMutex);
 
     // Skip processing if we already handled this frame
-    if (localFrameCount == currentFrame) {
+    if (localFrameCount == currentFrame)
+    {
       sem_post(&game->viewports[(viewportIndex + 1) % game->playerCount]
                     .inputSemaphore);
       continue;
@@ -488,32 +589,37 @@ void *updatePlayer(void *arg) {
       direction.x = 1; // Right
 
     // Build Solar Charger Small
-    if (IsKeyPressed(controls[controlScheme][5])) {
+    if (IsKeyPressed(controls[controlScheme][5]))
+    {
       pthread_mutex_lock(&viewport->player->mutex);
       buildSolarCharger(game, viewport->player->position, 1);
       pthread_mutex_unlock(&viewport->player->mutex);
     }
 
     // Build Solar Charger Large
-    if (IsKeyPressed(controls[controlScheme][6])) {
+    if (IsKeyPressed(controls[controlScheme][6]))
+    {
       pthread_mutex_lock(&viewport->player->mutex);
       buildSolarCharger(game, viewport->player->position, 2);
       pthread_mutex_unlock(&viewport->player->mutex);
     }
 
     // Shoot action
-    if (IsKeyPressed(controls[controlScheme][4])) {
+    if (IsKeyPressed(controls[controlScheme][4]))
+    {
 
       float enemyHealth = 0.1;
 
-      if (game->battery > enemyHealth) {
+      if (game->battery > enemyHealth)
+      {
 
         pthread_mutex_lock(&viewport->player->mutex);
         int closestEnemy =
             getClosestEnemyIndex(game, viewport->player->position);
         pthread_mutex_unlock(&viewport->player->mutex);
 
-        if (closestEnemy != -1) {
+        if (closestEnemy != -1)
+        {
           pthread_mutex_lock(&game->batteryMutex);
 
           killEnemy(game, closestEnemy);
@@ -525,14 +631,19 @@ void *updatePlayer(void *arg) {
     }
 
     // Camera controls (global)
-    if (viewportIndex == 0) { // Only process these once
-      if (IsKeyPressed(KEY_EQUAL)) {
-        for (int i = 0; i < game->playerCount; i++) {
+    if (viewportIndex == 0)
+    { // Only process these once
+      if (IsKeyPressed(KEY_EQUAL))
+      {
+        for (int i = 0; i < game->playerCount; i++)
+        {
           game->viewports[i].camera->zoom += 0.25;
         }
       }
-      if (IsKeyPressed(KEY_MINUS)) {
-        for (int i = 0; i < game->playerCount; i++) {
+      if (IsKeyPressed(KEY_MINUS))
+      {
+        for (int i = 0; i < game->playerCount; i++)
+        {
           game->viewports[i].camera->zoom -= 0.25;
         }
       }
@@ -542,7 +653,8 @@ void *updatePlayer(void *arg) {
     collectSolarCells(game, viewport->player);
 
     // Apply movement if game isn't paused
-    if (!game->paused && (direction.x != 0 || direction.y != 0)) {
+    if (!game->paused && (direction.x != 0 || direction.y != 0))
+    {
       direction = normalizeVector2(direction);
 
       Vector2 velocity = {direction.x * viewport->player->speed,
@@ -550,19 +662,23 @@ void *updatePlayer(void *arg) {
 
       int boundx = game->mapSize, boundy = game->mapSize;
 
-      if (velocity.x < 0 && viewport->player->position.x < -boundx) {
+      if (velocity.x < 0 && viewport->player->position.x < -boundx)
+      {
         velocity.x = 0;
       }
 
-      if (velocity.x > 0 && viewport->player->position.x > boundx) {
+      if (velocity.x > 0 && viewport->player->position.x > boundx)
+      {
         velocity.x = 0;
       }
 
-      if (velocity.y < 0 && viewport->player->position.y < -boundy) {
+      if (velocity.y < 0 && viewport->player->position.y < -boundy)
+      {
         velocity.y = 0;
       }
 
-      if (velocity.y > 0 && viewport->player->position.y > boundy) {
+      if (velocity.y > 0 && viewport->player->position.y > boundy)
+      {
         velocity.y = 0;
       }
 
@@ -581,20 +697,56 @@ void *updatePlayer(void *arg) {
   return NULL;
 }
 
-void drawPlayers(Game *game) {
-  for (int i = 0; i < game->playerCount; i++) {
+// void drawPlayers(Game *game)
+// {
+//   for (int i = 0; i < game->playerCount; i++)
+//   {
+//     pthread_mutex_lock(&game->players[i].mutex);
+//     DrawRectangleRounded(
+//         (Rectangle){
+//             game->players[i].position.x - (float)game->players[i].size / 2,
+//             game->players[i].position.y - (float)game->players[i].size / 2,
+//             game->players[i].size, game->players[i].size},
+//         0.5, 1, game->players[i].color);
+//     pthread_mutex_unlock(&game->players[i].mutex);
+//   }
+// }
+
+// In drawPlayers function:
+void drawPlayers(Game *game)
+{
+  for (int i = 0; i < game->playerCount; i++)
+  {
     pthread_mutex_lock(&game->players[i].mutex);
-    DrawRectangleRounded(
+
+    // Determine if the player is moving left or right
+    float direction = game->players[i].position.x < 0 ? -1.0f : 1.0f;
+
+    // Flip the texture horizontally if moving left
+    Rectangle sourceRect = {
+        0,
+        0,
+        direction * game->playerTextures[i % 2].width, // Flip width if direction is negative
+        game->playerTextures[i % 2].height};
+
+    DrawTexturePro(
+        game->playerTextures[i % 2],
+        sourceRect,
         (Rectangle){
-            game->players[i].position.x - (float)game->players[i].size / 2,
-            game->players[i].position.y - (float)game->players[i].size / 2,
-            game->players[i].size, game->players[i].size},
-        0.5, 1, game->players[i].color);
+            game->players[i].position.x - game->players[i].size / 2,
+            game->players[i].position.y - game->players[i].size / 2,
+            game->players[i].size,
+            game->players[i].size},
+        (Vector2){0, 0},
+        0.0f,
+        WHITE);
+
     pthread_mutex_unlock(&game->players[i].mutex);
   }
 }
 
-void drawBorders(Game *game) {
+void drawBorders(Game *game)
+{
 
   // Bottom
   DrawLineV((Vector2){(float)game->mapSize, (float)game->mapSize},
@@ -613,19 +765,24 @@ void drawBorders(Game *game) {
             (Vector2){-(float)game->mapSize, +(float)game->mapSize}, WHITE);
 }
 
-void handleGameOver(Game *game) {
-  for (int i = 0; i < game->playerCount; i++) {
-    if (game->players[i].health < 0) {
+void handleGameOver(Game *game)
+{
+  for (int i = 0; i < game->playerCount; i++)
+  {
+    if (game->players[i].health < 0)
+    {
       game->paused = true;
       game->gameOver = true;
     }
   }
 }
 
-void draw(Game *game) {
+void draw(Game *game)
+{
 
   // Drawing on every viewport
-  for (int i = 0; i < game->playerCount; i++) {
+  for (int i = 0; i < game->playerCount; i++)
+  {
 
     // Updating camera to follow player
     pthread_mutex_lock(&game->players[i].mutex);
@@ -681,7 +838,8 @@ void draw(Game *game) {
   ClearBackground(BLACK);
 
   // Drawing the prepared viewports to a single screen sized rectangle
-  for (int i = 0; i < game->playerCount; i++) {
+  for (int i = 0; i < game->playerCount; i++)
+  {
     DrawTextureRec(
         game->viewports[i].renderTexture->texture,
         (Rectangle){0, 0, game->viewports[i].renderTexture->texture.width,
@@ -690,7 +848,8 @@ void draw(Game *game) {
   }
 
   // Drawing line(s) between screens
-  for (int i = 1; i < game->playerCount; i++) {
+  for (int i = 1; i < game->playerCount; i++)
+  {
     DrawRectangle(i * (int)(GetScreenWidth() / game->playerCount) - 2, 0, 4,
                   GetScreenHeight(), WHITE);
   }
@@ -742,26 +901,45 @@ void draw(Game *game) {
            timeToNextWaveFontSize, WHITE);
 }
 
-void killViewports(Game *game) {
+// void killViewports(Game *game)
+// {
+//   game->isQuitting = true;
+//   for (int i = 0; i < game->playerCount; i++)
+//   {
+//     // Join all threads
+//     pthread_join(game->viewports[i].thread, NULL);
+
+//     // Unloading all render textures out of the GPU
+//     UnloadRenderTexture(*game->viewports[i].renderTexture);
+
+//     // Destroy semaphores
+//     sem_destroy(&game->viewports[i].inputSemaphore);
+//   }
+// }
+// Add texture unloading in killViewports function
+// In killViewports function:
+void killViewports(Game *game)
+{
   game->isQuitting = true;
-  for (int i = 0; i < game->playerCount; i++) {
-    // Join all threads
+  for (int i = 0; i < game->playerCount; i++)
+  {
     pthread_join(game->viewports[i].thread, NULL);
-
-    // Unloading all render textures out of the GPU
     UnloadRenderTexture(*game->viewports[i].renderTexture);
-
-    // Destroy semaphores
     sem_destroy(&game->viewports[i].inputSemaphore);
   }
-}
 
-int main(int argc, char **args) {
+  // Unload player textures
+  UnloadTexture(game->playerTextures[0]);
+  UnloadTexture(game->playerTextures[1]);
+}
+int main(int argc, char **args)
+{
 
   srand(time(NULL));
   InitWindow(0, 0, "Thread Wars");
 
-  if (!IsWindowFullscreen()) {
+  if (!IsWindowFullscreen())
+  {
     ToggleFullscreen();
   }
 
@@ -806,7 +984,8 @@ int main(int argc, char **args) {
   SetTargetFPS(game.targetFPS);
 
   // Creating viewport threads
-  for (int i = 0; i < game.playerCount; i++) {
+  for (int i = 0; i < game.playerCount; i++)
+  {
     ViewportThreadArgument *args = malloc(sizeof(ViewportThreadArgument));
     args->viewportIndex = i;
     args->game = &game;
@@ -814,29 +993,35 @@ int main(int argc, char **args) {
     pthread_create(&game.viewports[i].thread, NULL, updatePlayer, (void *)args);
   }
 
-  while (!WindowShouldClose()) {
+  while (!WindowShouldClose())
+  {
 
-    if (game.frameCount % (game.targetFPS * 5) == 0) {
+    if (game.frameCount % (game.targetFPS * 5) == 0)
+    {
       printf("GENERATED SOLAR CELLS\n");
       generateSolarCells(&game);
     }
 
     // Pausing
-    if (IsKeyPressed(KEY_P)) {
-      if (!game.gameOver) {
+    if (IsKeyPressed(KEY_P))
+    {
+      if (!game.gameOver)
+      {
         game.paused = !game.paused;
       }
     }
 
     // Adding enemies
-    if (IsKeyPressed(KEY_BACKSPACE)) {
+    if (IsKeyPressed(KEY_BACKSPACE))
+    {
       addEnemies(&game, 5);
     }
 
     handleGameOver(&game);
 
     // Update
-    if (!game.paused) {
+    if (!game.paused)
+    {
       generateEnemies(&game);
 
       updateEnemies(&game);
@@ -850,7 +1035,8 @@ int main(int argc, char **args) {
     // Drawing everything to screen
     draw(&game);
 
-    if (game.paused && !game.gameOver) {
+    if (game.paused && !game.gameOver)
+    {
       DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
       char enemiesAliveText[] = "PAUSED";
       int fontSize = GetScreenHeight() * 0.05;
@@ -860,7 +1046,8 @@ int main(int argc, char **args) {
                GetScreenHeight() / 2 - fontSize / 2, fontSize, WHITE);
     }
 
-    if (game.gameOver) {
+    if (game.gameOver)
+    {
       DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
       char enemiesAliveText[] = "GAME OVER :(";
       int fontSize = GetScreenHeight() * 0.05;
