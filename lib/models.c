@@ -57,7 +57,7 @@ typedef struct {
   bool isQuitting;
   int targetFPS;
   int mapSize;
-  bool gameOver;
+  bool gameOver, gameWon;
 
   int numWaves;
   EnemyWave *waves;
@@ -89,7 +89,7 @@ typedef struct {
 
   char message[256];
   float messageOpacity;
-  int messageDuration;
+  int messageDuration, messageAddedFrame, messageFontSize;
 
   Viewport *viewports;
 } Game;

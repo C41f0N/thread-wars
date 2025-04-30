@@ -21,28 +21,33 @@ void drawMessage(Game *game) {
   int messageFontSize = 45;
 
   DrawRectangle(GetScreenWidth() * 0.5 -
-                    (double)MeasureText(game->message, messageFontSize) / 2,
-                GetScreenHeight() - 15 - messageFontSize,
+                    (double)MeasureText(game->message, messageFontSize) * 0.5,
+                GetScreenHeight() * 0.5 - messageFontSize * 0.5,
                 MeasureText(game->message, messageFontSize), messageFontSize,
-                BLACK);
+                (Color){0, 0, 0, 255 * game->messageOpacity});
 
   DrawText(game->message,
            GetScreenWidth() * 0.5 -
-               (double)MeasureText(game->message, messageFontSize) / 2,
-           GetScreenHeight() - 15 - messageFontSize, messageFontSize,
-           (Color){255, 255, 255, game->messageOpacity * 255});
+               (double)MeasureText(game->message, messageFontSize) * 0.5,
+           GetScreenHeight() * 0.5 - messageFontSize * 0.5, messageFontSize,
+           (Color){255, 255, 255, 255 * game->messageOpacity});
 }
 
 void updateMessage(Game *game) {
-  if (game->messageOpacity > 0)
-    game->messageOpacity -= (float)game->messageDuration * game->targetFPS;
+  game->messageOpacity =
+      1 - ((float)(game->frameCount - game->messageAddedFrame) /
+           (game->messageDuration * game->targetFPS));
 
+  if (game->messageOpacity > 1)
+    game->messageOpacity = 1;
   if (game->messageOpacity < 0)
     game->messageOpacity = 0;
 }
 
-void showMessage(Game *game, char message[]) {
+void showMessage(Game *game, char message[], int fontSize) {
   sprintf(game->message, "%s", message);
+  game->messageFontSize = fontSize;
+  game->messageAddedFrame = game->frameCount;
   game->messageOpacity = 1;
 }
 
@@ -197,16 +202,18 @@ void initializeWaves(Game *game) {
   game->waves = calloc(sizeof(EnemyWave), game->numWaves);
 
   // Setting up waves
-  game->waves[0].numEnemies = 5;
-  game->waves[0].waitTime = 5;
+  game->waves[0].numEnemies = 2;
+  game->waves[0].waitTime = 10;
 
-  game->waves[1].numEnemies = 30;
-  game->waves[1].waitTime = 20;
+  game->waves[1].numEnemies = 2;
+  game->waves[1].waitTime = 2;
 
-  game->waves[2].numEnemies = 50;
-  game->waves[2].waitTime = 30;
+  game->waves[2].numEnemies = 2;
+  game->waves[2].waitTime = 2;
 
   game->lastWaveFrame = 0;
+  game->currentWave = 0;
+  game->frameCount = 0;
 }
 
 // Function to create and initialize viewports
@@ -291,7 +298,7 @@ void drawSolarCells(Game *game) {
                                            (float)game->solarCells[i].size / 2,
                                        game->solarCells[i].size,
                                        game->solarCells[i].size},
-                           1, 1, GREEN);
+                           1, 1, GRAY);
     }
   }
 }
@@ -455,24 +462,6 @@ void addEnemies(Game *game, int n) {
   pthread_mutex_unlock(&game->enemyCountMutex);
 }
 
-void generateEnemies(Game *game) {
-
-  if (game->currentWave < game->numWaves - 1 &&
-      game->frameCount >
-          game->lastWaveFrame +
-              game->waves[game->currentWave].waitTime * game->targetFPS) {
-
-    // Unleash the enemies for this wave
-    char message[256];
-    sprintf(message, "WAVE %d begins!", game->currentWave);
-    showMessage(game, message);
-
-    addEnemies(game, game->waves[game->currentWave].numEnemies);
-    game->lastWaveFrame = game->frameCount;
-    game->currentWave++;
-  }
-}
-
 void killEnemy(Game *game, int enemyIndex) {
   game->enemies[enemyIndex].active = false;
   pthread_mutex_lock(&game->enemyCountMutex);
@@ -631,12 +620,38 @@ void drawMap(Game *game) {
                      game->mapSize, GREEN);
 }
 
+void win(Game *game) {
+  game->paused = true;
+  game->gameWon = true;
+}
+
 void handleGameOver(Game *game) {
   for (int i = 0; i < game->playerCount; i++) {
     if (game->players[i].health < 0) {
       game->paused = true;
       game->gameOver = true;
     }
+  }
+}
+
+void generateEnemies(Game *game) {
+  if (game->currentWave < game->numWaves) {
+    if (game->frameCount >
+        game->lastWaveFrame +
+            game->waves[game->currentWave].waitTime * game->targetFPS) {
+
+      // Unleash the enemies for this wave
+      char message[256];
+      sprintf(message, "WAVE %d begins!", game->currentWave);
+      showMessage(game, message, 45);
+
+      addEnemies(game, game->waves[game->currentWave].numEnemies);
+      game->lastWaveFrame = game->frameCount;
+      game->currentWave++;
+    }
+  } else {
+    if (game->enemyCount <= 0)
+      win(game);
   }
 }
 
@@ -756,12 +771,18 @@ void draw(Game *game) {
            WHITE);
 
   // Draw Time to next wave
+  int secondsToNextWave =
+      ((game->waves[game->currentWave].waitTime * game->targetFPS +
+        game->lastWaveFrame) -
+       game->frameCount) /
+      game->targetFPS;
+
   char timeToNextWaveText[128];
-  sprintf(timeToNextWaveText, "Time to next wave: %ds",
-          ((game->waves[game->currentWave].waitTime * game->targetFPS +
-            game->lastWaveFrame) -
-           game->frameCount) /
-              game->targetFPS);
+  if (secondsToNextWave >= 0) {
+    sprintf(timeToNextWaveText, "Time to next wave: %ds", secondsToNextWave);
+  } else {
+    sprintf(timeToNextWaveText, "Time to next wave: Inifinity");
+  }
   int timeToNextWaveFontSize = 25;
 
   DrawText(timeToNextWaveText, GetScreenWidth() * 0.01,
@@ -799,7 +820,7 @@ int main(int argc, char **args) {
 
   game.playerCount = 2;
 
-  game.messageDuration = 5;
+  game.messageDuration = 1;
 
   game.maxEnemies = 300;
   game.enemyCount = 0;
@@ -819,6 +840,7 @@ int main(int argc, char **args) {
   game.paused = false;
   game.isQuitting = false;
   game.gameOver = false;
+  game.gameWon = false;
 
   game.numWaves = 3;
   game.currentWave = 0;
@@ -880,7 +902,7 @@ int main(int argc, char **args) {
     // Drawing everything to screen
     draw(&game);
 
-    if (game.paused && !game.gameOver) {
+    if (game.paused && !game.gameOver && !game.gameWon) {
       DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
       char enemiesAliveText[] = "PAUSED";
       int fontSize = GetScreenHeight() * 0.05;
@@ -892,11 +914,19 @@ int main(int argc, char **args) {
 
     if (game.gameOver) {
       DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
-      char enemiesAliveText[] = "GAME OVER :(";
+      char gameOverText[] = "GAME OVER :(";
       int fontSize = GetScreenHeight() * 0.05;
-      DrawText(enemiesAliveText,
-               GetScreenWidth() / 2 -
-                   MeasureText(enemiesAliveText, fontSize) / 2,
+      DrawText(gameOverText,
+               GetScreenWidth() / 2 - MeasureText(gameOverText, fontSize) / 2,
+               GetScreenHeight() / 2 - fontSize / 2, fontSize, WHITE);
+    }
+
+    if (game.gameWon) {
+      DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
+      char wonText[] = "YOU SURVIVED :)";
+      int fontSize = GetScreenHeight() * 0.05;
+      DrawText(wonText,
+               GetScreenWidth() / 2 - MeasureText(wonText, fontSize) / 2,
                GetScreenHeight() / 2 - fontSize / 2, fontSize, WHITE);
     }
 
