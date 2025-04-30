@@ -246,10 +246,10 @@ void addSolarCell(Game *game, Vector2 position) {
 void generateSolarCells(Game *game) {
   // Generate n solar cells in random places
   int n = 20;
-  int radius = game->mapSize;
+  int radius = game->mapSize / 2;
   for (int i = 0; i < n; i++) {
-    addSolarCell(game, (Vector2){(rand() % radius * 2) - game->mapSize,
-                                 (rand() % game->mapSize * 2) - game->mapSize});
+    addSolarCell(game, (Vector2){(rand() % radius * 2) - radius,
+                                 (rand() % radius * 2) - radius});
   }
 }
 
@@ -548,7 +548,7 @@ void *updatePlayer(void *arg) {
       Vector2 velocity = {direction.x * viewport->player->speed,
                           direction.y * viewport->player->speed};
 
-      int boundx = game->mapSize, boundy = game->mapSize;
+      int boundx = game->mapSize / 2, boundy = game->mapSize / 2;
 
       if (velocity.x < 0 && viewport->player->position.x < -boundx) {
         velocity.x = 0;
@@ -594,23 +594,10 @@ void drawPlayers(Game *game) {
   }
 }
 
-void drawBorders(Game *game) {
+void drawMap(Game *game) {
 
-  // Bottom
-  DrawLineV((Vector2){(float)game->mapSize, (float)game->mapSize},
-            (Vector2){-(float)game->mapSize, (float)game->mapSize}, WHITE);
-
-  // Up
-  DrawLineV((Vector2){(float)game->mapSize, -(float)game->mapSize},
-            (Vector2){-(float)game->mapSize, -(float)game->mapSize}, WHITE);
-
-  // Left
-  DrawLineV((Vector2){(float)game->mapSize, -(float)game->mapSize},
-            (Vector2){(float)game->mapSize, (float)game->mapSize}, WHITE);
-
-  // Right
-  DrawLineV((Vector2){-(float)game->mapSize, -(float)game->mapSize},
-            (Vector2){-(float)game->mapSize, +(float)game->mapSize}, WHITE);
+  DrawRectangleLines(-game->mapSize / 2, -game->mapSize / 2, game->mapSize,
+                     game->mapSize, GREEN);
 }
 
 void handleGameOver(Game *game) {
@@ -643,7 +630,7 @@ void draw(Game *game) {
     ClearBackground(BLACK);
 
     // Draw Borders
-    drawBorders(game);
+    drawMap(game);
 
     // Draw Solar Chargers
     drawSolarChargers(game);
@@ -781,7 +768,7 @@ int main(int argc, char **args) {
 
   game.battery = 0;
 
-  game.mapSize = 1000;
+  game.mapSize = 2000;
 
   game.targetFPS = 60;
   game.paused = false;
