@@ -17,6 +17,35 @@ int controls[3][7] = {
     {KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT, KEY_ENTER, KEY_MINUS, KEY_EQUAL},
 };
 
+void drawMessage(Game *game) {
+  int messageFontSize = 45;
+
+  DrawRectangle(GetScreenWidth() * 0.5 -
+                    (double)MeasureText(game->message, messageFontSize) / 2,
+                GetScreenHeight() - 15 - messageFontSize,
+                MeasureText(game->message, messageFontSize), messageFontSize,
+                BLACK);
+
+  DrawText(game->message,
+           GetScreenWidth() * 0.5 -
+               (double)MeasureText(game->message, messageFontSize) / 2,
+           GetScreenHeight() - 15 - messageFontSize, messageFontSize,
+           (Color){255, 255, 255, game->messageOpacity * 255});
+}
+
+void updateMessage(Game *game) {
+  if (game->messageOpacity > 0)
+    game->messageOpacity -= (float)game->messageDuration * game->targetFPS;
+
+  if (game->messageOpacity < 0)
+    game->messageOpacity = 0;
+}
+
+void showMessage(Game *game, char message[]) {
+  sprintf(game->message, "%s", message);
+  game->messageOpacity = 1;
+}
+
 void *computeSolarChargers(void *arg) {
 
   Game *game = ((SolarChargingComputerThreadArgument *)(arg))->game;
@@ -168,8 +197,8 @@ void initializeWaves(Game *game) {
   game->waves = calloc(sizeof(EnemyWave), game->numWaves);
 
   // Setting up waves
-  game->waves[0].numEnemies = 10;
-  game->waves[0].waitTime = 10;
+  game->waves[0].numEnemies = 5;
+  game->waves[0].waitTime = 5;
 
   game->waves[1].numEnemies = 30;
   game->waves[1].waitTime = 20;
@@ -427,16 +456,20 @@ void addEnemies(Game *game, int n) {
 }
 
 void generateEnemies(Game *game) {
-  printf("HERE\n");
+
   if (game->currentWave < game->numWaves - 1 &&
-      game->frameCount - game->lastWaveFrame >
-          game->waves[game->currentWave].waitTime * game->targetFPS) {
-    printf("AND HERE\n");
+      game->frameCount >
+          game->lastWaveFrame +
+              game->waves[game->currentWave].waitTime * game->targetFPS) {
+
     // Unleash the enemies for this wave
-    game->currentWave++;
+    char message[256];
+    sprintf(message, "WAVE %d begins!", game->currentWave);
+    showMessage(game, message);
 
     addEnemies(game, game->waves[game->currentWave].numEnemies);
     game->lastWaveFrame = game->frameCount;
+    game->currentWave++;
   }
 }
 
@@ -460,9 +493,7 @@ void *updatePlayer(void *arg) {
     sem_wait(&viewport->inputSemaphore);
 
     // Get current frame count (with mutex protection)
-    pthread_mutex_lock(&game->frameCountMutex);
     int currentFrame = game->frameCount;
-    pthread_mutex_unlock(&game->frameCountMutex);
 
     // Skip processing if we already handled this frame
     if (localFrameCount == currentFrame) {
@@ -715,6 +746,15 @@ void draw(Game *game) {
            GetScreenHeight() * 0.06 + solarCellsFontSize, solarCellsFontSize,
            WHITE);
 
+  // Draw wave number
+  char waveNumberText[128];
+  sprintf(waveNumberText, "Current Wave: %d", game->currentWave);
+  int waveNumberFontSize = 25;
+
+  DrawText(waveNumberText, GetScreenWidth() * 0.01,
+           GetScreenHeight() * 0.09 + waveNumberFontSize, waveNumberFontSize,
+           WHITE);
+
   // Draw Time to next wave
   char timeToNextWaveText[128];
   sprintf(timeToNextWaveText, "Time to next wave: %ds",
@@ -725,8 +765,11 @@ void draw(Game *game) {
   int timeToNextWaveFontSize = 25;
 
   DrawText(timeToNextWaveText, GetScreenWidth() * 0.01,
-           GetScreenHeight() * 0.09 + timeToNextWaveFontSize,
+           GetScreenHeight() * 0.12 + timeToNextWaveFontSize,
            timeToNextWaveFontSize, WHITE);
+
+  // Draw message shown to player
+  drawMessage(game);
 }
 
 void killViewports(Game *game) {
@@ -755,6 +798,8 @@ int main(int argc, char **args) {
   Game game;
 
   game.playerCount = 2;
+
+  game.messageDuration = 5;
 
   game.maxEnemies = 300;
   game.enemyCount = 0;
@@ -785,7 +830,6 @@ int main(int argc, char **args) {
   initializeViewports(&game);
   initializeSolarCells(&game);
 
-  pthread_mutex_init(&game.frameCountMutex, NULL);
   pthread_mutex_init(&game.enemyCountMutex, NULL);
   pthread_mutex_init(&game.batteryMutex, NULL);
   pthread_mutex_init(&game.solarCellsMutex, NULL);
@@ -826,11 +870,10 @@ int main(int argc, char **args) {
     if (!game.paused) {
       generateEnemies(&game);
 
+      updateMessage(&game);
       updateEnemies(&game);
 
-      pthread_mutex_lock(&game.frameCountMutex);
       game.frameCount++;
-      pthread_mutex_unlock(&game.frameCountMutex);
     }
 
     BeginDrawing();

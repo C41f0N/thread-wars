@@ -65,7 +65,6 @@ typedef struct {
   int lastWaveFrame, currentWave;
 
   int frameCount;
-  pthread_mutex_t frameCountMutex;
 
   float battery;
   pthread_mutex_t batteryMutex;
@@ -87,6 +86,10 @@ typedef struct {
 
   int enemyCount;
   pthread_mutex_t enemyCountMutex;
+
+  char message[256];
+  float messageOpacity;
+  int messageDuration;
 
   Viewport *viewports;
 } Game;
