@@ -140,10 +140,47 @@ void buildSolarCharger(Game *game, Vector2 position, int size) {
   }
 }
 
+// void initializePlayers(Game *game)
+// {
+//   Color playerColors[] = {YELLOW, BLUE, GREEN, PINK};
+
+//   game->players = (Player *)calloc(sizeof(Player), game->playerCount);
+
+//   for (int i = 0; i < game->playerCount; i++)
+//   {
+//     game->players[i].size = 50;
+//     game->players[i].speed = (float)600 / game->targetFPS;
+//     game->players[i].health = 100;
+//     game->players[i].color = playerColors[i % game->playerCount];
+//     game->players[i].position =
+//         (Vector2){0 + i * (20 + game->players[i].size), 0};
+
+//     // Initializing mutexes
+//     for (int j = 0; j < game->playerCount; j++)
+//     {
+//       if (pthread_mutex_init(&game->players[j].mutex, NULL))
+//       {
+//         exit(0);
+//       };
+//     }
+//   }
+// }
+
+// In initializePlayers function:
 void initializePlayers(Game *game) {
   Color playerColors[] = {YELLOW, BLUE, GREEN, PINK};
 
   game->players = (Player *)calloc(sizeof(Player), game->playerCount);
+
+  // Load player textures - make sure the path is correct
+  game->playerTextures[0] = LoadTexture("assets/player1.jpeg");
+  game->playerTextures[1] = LoadTexture("assets/player2.jpeg");
+
+  // Verify textures loaded correctly
+  if (game->playerTextures[0].id == 0 || game->playerTextures[1].id == 0) {
+    printf("ERROR: Failed to load player textures!\n");
+    exit(1);
+  }
 
   for (int i = 0; i < game->playerCount; i++) {
     game->players[i].size = 50;
@@ -153,7 +190,6 @@ void initializePlayers(Game *game) {
     game->players[i].position =
         (Vector2){0 + i * (20 + game->players[i].size), 0};
 
-    // Initializing mutexes
     for (int j = 0; j < game->playerCount; j++) {
       if (pthread_mutex_init(&game->players[j].mutex, NULL)) {
         exit(0);
@@ -601,15 +637,44 @@ void *updatePlayer(void *arg) {
   return NULL;
 }
 
+// void drawPlayers(Game *game)
+// {
+//   for (int i = 0; i < game->playerCount; i++)
+//   {
+//     pthread_mutex_lock(&game->players[i].mutex);
+//     DrawRectangleRounded(
+//         (Rectangle){
+//             game->players[i].position.x - (float)game->players[i].size / 2,
+//             game->players[i].position.y - (float)game->players[i].size / 2,
+//             game->players[i].size, game->players[i].size},
+//         0.5, 1, game->players[i].color);
+//     pthread_mutex_unlock(&game->players[i].mutex);
+//   }
+// }
+
+// In drawPlayers function:
 void drawPlayers(Game *game) {
   for (int i = 0; i < game->playerCount; i++) {
     pthread_mutex_lock(&game->players[i].mutex);
-    DrawRectangleRounded(
+
+    // Determine if the player is moving left or right
+    float direction = game->players[i].position.x < 0 ? -1.0f : 1.0f;
+
+    // Flip the texture horizontally if moving left
+    Rectangle sourceRect = {
+        0, 0,
+        direction * game->playerTextures[i % 2]
+                        .width, // Flip width if direction is negative
+        game->playerTextures[i % 2].height};
+
+    DrawTexturePro(
+        game->playerTextures[i % 2], sourceRect,
         (Rectangle){
             game->players[i].position.x - (float)game->players[i].size / 2,
             game->players[i].position.y - (float)game->players[i].size / 2,
             game->players[i].size, game->players[i].size},
-        0.5, 1, game->players[i].color);
+        (Vector2){0, 0}, 0.0f, WHITE);
+
     pthread_mutex_unlock(&game->players[i].mutex);
   }
 }
@@ -793,20 +858,35 @@ void draw(Game *game) {
   drawMessage(game);
 }
 
+// void killViewports(Game *game)
+// {
+//   game->isQuitting = true;
+//   for (int i = 0; i < game->playerCount; i++)
+//   {
+//     // Join all threads
+//     pthread_join(game->viewports[i].thread, NULL);
+
+//     // Unloading all render textures out of the GPU
+//     UnloadRenderTexture(*game->viewports[i].renderTexture);
+
+//     // Destroy semaphores
+//     sem_destroy(&game->viewports[i].inputSemaphore);
+//   }
+// }
+// Add texture unloading in killViewports function
+// In killViewports function:
 void killViewports(Game *game) {
   game->isQuitting = true;
   for (int i = 0; i < game->playerCount; i++) {
-    // Join all threads
     pthread_join(game->viewports[i].thread, NULL);
-
-    // Unloading all render textures out of the GPU
     UnloadRenderTexture(*game->viewports[i].renderTexture);
-
-    // Destroy semaphores
     sem_destroy(&game->viewports[i].inputSemaphore);
   }
-}
 
+  // Unload player textures
+  UnloadTexture(game->playerTextures[0]);
+  UnloadTexture(game->playerTextures[1]);
+}
 int main(int argc, char **args) {
 
   srand(time(NULL));
@@ -834,7 +914,7 @@ int main(int argc, char **args) {
 
   game.battery = 0;
 
-  game.mapSize = 2000;
+  game.mapSize = 1000;
 
   game.targetFPS = 60;
   game.paused = false;
