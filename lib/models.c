@@ -4,9 +4,9 @@
 #include <stdlib.h>
 
 // Player Struct
-typedef struct
-{
+typedef struct {
   Vector2 position;
+  int flipDir;
   float speed;
   int size;
   float health;
@@ -15,8 +15,7 @@ typedef struct
 } Player;
 
 // Enemy Struct
-typedef struct
-{
+typedef struct {
   Vector2 position;
   float damage;
   int speed;
@@ -26,16 +25,14 @@ typedef struct
 } Enemy;
 
 // Solar Charger Struct
-typedef struct
-{
+typedef struct {
   int width, height;
   Vector2 position;
   bool active;
 } SolarCharger;
 
 // Viewport Struct
-typedef struct
-{
+typedef struct {
   Camera2D *camera;
   RenderTexture2D *renderTexture;
   Player *player;
@@ -43,23 +40,20 @@ typedef struct
   pthread_t thread;
 } Viewport;
 
-typedef struct
-{
+typedef struct {
   Vector2 position;
   int size;
   bool active;
 } SolarCell;
 
 // Wave Struct
-typedef struct
-{
+typedef struct {
   int numEnemies; // number of enemies to spawn
   int waitTime;   // time in seconds before enemies are spawned
 } EnemyWave;
 
 // Game Struct
-typedef struct
-{
+typedef struct {
   bool paused;
   bool isQuitting;
   int targetFPS;
@@ -103,15 +97,13 @@ typedef struct
 } Game;
 
 // Viewport Thread Arguments Struct
-typedef struct
-{
+typedef struct {
   Game *game;
   int viewportIndex;
 } ViewportThreadArgument;
 
 // Solar Charger Thread Arguments Struct
-typedef struct
-{
+typedef struct {
   Game *game;
   int solarChargerComputerIndex;
 } SolarChargingComputerThreadArgument;

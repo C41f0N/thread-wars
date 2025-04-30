@@ -14,7 +14,7 @@
 */
 int controls[3][7] = {
     {KEY_W, KEY_A, KEY_S, KEY_D, KEY_SPACE, KEY_ONE, KEY_TWO},
-    {KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT, KEY_ENTER, KEY_MINUS, KEY_EQUAL},
+    {KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT, KEY_ENTER, KEY_NINE, KEY_ZERO},
 };
 
 void drawMessage(Game *game) {
@@ -173,8 +173,8 @@ void initializePlayers(Game *game) {
   game->players = (Player *)calloc(sizeof(Player), game->playerCount);
 
   // Load player textures - make sure the path is correct
-  game->playerTextures[0] = LoadTexture("assets/player1.jpeg");
-  game->playerTextures[1] = LoadTexture("assets/player2.jpeg");
+  game->playerTextures[0] = LoadTexture("assets/player1.png");
+  game->playerTextures[1] = LoadTexture("assets/player2.png");
 
   // Verify textures loaded correctly
   if (game->playerTextures[0].id == 0 || game->playerTextures[1].id == 0) {
@@ -183,7 +183,8 @@ void initializePlayers(Game *game) {
   }
 
   for (int i = 0; i < game->playerCount; i++) {
-    game->players[i].size = 50;
+    game->players[i].size = 100;
+    game->players[i].flipDir = 1;
     game->players[i].speed = (float)600 / game->targetFPS;
     game->players[i].health = 100;
     game->players[i].color = playerColors[i % game->playerCount];
@@ -238,14 +239,14 @@ void initializeWaves(Game *game) {
   game->waves = calloc(sizeof(EnemyWave), game->numWaves);
 
   // Setting up waves
-  game->waves[0].numEnemies = 2;
+  game->waves[0].numEnemies = 5;
   game->waves[0].waitTime = 10;
 
-  game->waves[1].numEnemies = 2;
-  game->waves[1].waitTime = 2;
+  game->waves[1].numEnemies = 25;
+  game->waves[1].waitTime = 10;
 
-  game->waves[2].numEnemies = 2;
-  game->waves[2].waitTime = 2;
+  game->waves[2].numEnemies = 50;
+  game->waves[2].waitTime = 10;
 
   game->lastWaveFrame = 0;
   game->currentWave = 0;
@@ -536,12 +537,16 @@ void *updatePlayer(void *arg) {
     // Movement controls (using simplified array access)
     if (IsKeyDown(controls[controlScheme][0]))
       direction.y = -1; // Up
-    if (IsKeyDown(controls[controlScheme][1]))
+    if (IsKeyDown(controls[controlScheme][1])) {
       direction.x = -1; // Left
+      viewport->player->flipDir = -1;
+    }
     if (IsKeyDown(controls[controlScheme][2]))
       direction.y = 1; // Down
-    if (IsKeyDown(controls[controlScheme][3]))
+    if (IsKeyDown(controls[controlScheme][3])) {
       direction.x = 1; // Right
+      viewport->player->flipDir = 1;
+    }
 
     // Build Solar Charger Small
     if (IsKeyPressed(controls[controlScheme][5])) {
@@ -663,8 +668,9 @@ void drawPlayers(Game *game) {
     // Flip the texture horizontally if moving left
     Rectangle sourceRect = {
         0, 0,
-        direction * game->playerTextures[i % 2]
-                        .width, // Flip width if direction is negative
+        game->players[i].flipDir *
+            game->playerTextures[i % 2]
+                .width, // Flip width if direction is negative
         game->playerTextures[i % 2].height};
 
     DrawTexturePro(
@@ -854,7 +860,7 @@ void draw(Game *game) {
            GetScreenHeight() * 0.12 + timeToNextWaveFontSize,
            timeToNextWaveFontSize, WHITE);
 
-  // Draw message shown to player
+  // Draw shown to player
   drawMessage(game);
 }
 
@@ -900,6 +906,7 @@ int main(int argc, char **args) {
 
   game.playerCount = 2;
 
+  sprintf(game.message, "");
   game.messageDuration = 1;
 
   game.maxEnemies = 300;
@@ -914,7 +921,7 @@ int main(int argc, char **args) {
 
   game.battery = 0;
 
-  game.mapSize = 1000;
+  game.mapSize = 2000;
 
   game.targetFPS = 60;
   game.paused = false;
