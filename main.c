@@ -20,7 +20,7 @@ int controls[3][7] = {
 MultiSound *initMultiSound(char filename[]) {
   MultiSound *multiSound = malloc(sizeof(MultiSound));
 
-  multiSound->buffsize = 10;
+  multiSound->buffsize = 50;
   multiSound->currentBuff = 0;
   multiSound->buffer = calloc(sizeof(Sound), multiSound->buffsize);
 
@@ -47,6 +47,8 @@ void initGameSounds(Game *game) {
   game->sound->shoot = initMultiSound("assets/audio/shoot.wav");
   game->sound->pickup = initMultiSound("assets/audio/pickup.wav");
   game->sound->place = initMultiSound("assets/audio/place.wav");
+  game->sound->noAmmo = initMultiSound("assets/audio/noAmmo.wav");
+  game->sound->zombie = LoadMusicStream("assets/audio/zombie.wav");
 };
 
 void drawMessage(Game *game) {
@@ -253,6 +255,18 @@ int getClosestEnemyIndex(Game *game, Vector2 from) {
   return closestEnemyIndex;
 }
 
+void drawAimLine(Game *game, Player *player) {
+  int closestEnemyIndex = getClosestEnemyIndex(game, player->position);
+  Vector2 enemyPos = game->enemies[closestEnemyIndex].position;
+
+  if (closestEnemyIndex != -1 &&
+      getDistanceBetweenVectors(player->position, enemyPos) <= game->gunRange) {
+
+    DrawLine(player->position.x, player->position.y, enemyPos.x, enemyPos.y,
+             YELLOW);
+  }
+}
+
 void initializeEnemies(Game *game) {
   game->enemies = calloc(game->maxEnemies, sizeof(Enemy));
 
@@ -274,7 +288,7 @@ void initializeWaves(Game *game) {
 
   // Setting up waves
   game->waves[0].numEnemies = 5;
-  game->waves[0].waitTime = 10;
+  game->waves[0].waitTime = 0;
 
   game->waves[1].numEnemies = 25;
   game->waves[1].waitTime = 10;
@@ -523,6 +537,14 @@ void addEnemies(Game *game, int n) {
       game->enemies[i].position =
           (Vector2){((rand() % game->mapSize) - (float)game->mapSize / 2),
                     (rand() % game->mapSize) - (float)game->mapSize / 2};
+
+      game->enemies[i].sound = LoadMusicStream("assets/audio/zombie.wav");
+      printf("playing sound\n");
+      // SeekMusicStream(game->enemies[i].sound,
+      //                 (rand() % 100 / (float)100) *
+      //                     GetMusicTimeLength(game->enemies[i].sound));
+      // PlayMusicStream(game->enemies[i].sound);
+
       game->enemyCount++;
       n--;
     }
@@ -535,6 +557,7 @@ void addEnemies(Game *game, int n) {
 
 void killEnemy(Game *game, int enemyIndex) {
   game->enemies[enemyIndex].active = false;
+  // StopMusicStream(game->enemies[enemyIndex].sound);
   pthread_mutex_lock(&game->enemyCountMutex);
   game->enemyCount--;
   pthread_mutex_unlock(&game->enemyCountMutex);
@@ -562,6 +585,7 @@ void handleShoot(Game *game, Player *player) {
       pthread_mutex_unlock(&game->batteryMutex);
     }
   } else {
+    playMultiSound(game->sound->noAmmo);
     showMessage(game, "[!] Not enough battery, make solar panels", 20);
   }
 }
@@ -802,6 +826,9 @@ void draw(Game *game) {
     // Draw solar cells
     drawSolarCells(game);
 
+    // Draw aim line
+    drawAimLine(game, &game->players[i]);
+
     // Draw all enemies
     drawEnemies(game);
 
@@ -982,13 +1009,13 @@ int main(int argc, char **args) {
   game.numWaves = 3;
   game.currentWave = 0;
 
-  initGameSounds(&game);
   initializeWaves(&game);
   initializePlayers(&game);
   initializeEnemies(&game);
   initializeSolarChargers(&game);
   initializeViewports(&game);
   initializeSolarCells(&game);
+  initGameSounds(&game);
 
   pthread_mutex_init(&game.enemyCountMutex, NULL);
   pthread_mutex_init(&game.batteryMutex, NULL);

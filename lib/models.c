@@ -21,6 +21,7 @@ typedef struct {
   int size;
   bool active;
   Color color;
+  Music sound;
 } Enemy;
 
 // Solar Charger Struct
@@ -57,7 +58,8 @@ typedef struct {
 } MultiSound;
 
 typedef struct {
-  MultiSound *shoot, *pickup, *place;
+  MultiSound *shoot, *pickup, *place, *noAmmo;
+  Music zombie;
 
 } GameSound;
 
