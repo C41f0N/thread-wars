@@ -834,16 +834,42 @@ void draw(Game *game) {
 
     // Drawing all players
     drawPlayers(game);
+    
+    EndMode2D();
 
     // Draw player health
+    Rectangle healthBarBack = {
+      game->viewports[i].renderTexture->texture.width / 2 - 50,
+      game->viewports[i].renderTexture->texture.height - 30,
+      100,
+      10
+    };
+    DrawRectangle(healthBarBack.x, healthBarBack.y, healthBarBack.width, healthBarBack.height, GRAY);
     char playerHealthText[128];
     int playerHealthFontSize = 18;
+
     pthread_mutex_lock(&game->players[i].mutex);
-    sprintf(playerHealthText, "Player %d Health: %.1f", i + 1,
-            game->players[i].health);
+    float healthPercent = game->players[i].health / 100.0f;
+    Color healthColor = healthPercent > 0.6f ? GREEN: (healthPercent > 0.3f ? YELLOW : RED);
     pthread_mutex_unlock(&game->players[i].mutex);
 
-    EndMode2D();
+    Rectangle healthBarFront = {
+      healthBarBack.x,
+      healthBarBack.y,
+      healthBarBack.width * healthPercent,
+      healthBarBack.height
+    };
+    DrawRectangleRec(healthBarFront, healthColor);
+    
+
+    pthread_mutex_lock(&game->players[i].mutex);
+    //sprintf(playerHealthText, "Player %d Health: %.1f", i + 1,
+    //      game->players[i].health);
+    sprintf(playerHealthText, "%.1f",
+          game->players[i].health);
+    pthread_mutex_unlock(&game->players[i].mutex);
+
+   
 
     DrawText(playerHealthText,
              game->viewports[i].renderTexture->texture.width / 2 -
@@ -854,7 +880,7 @@ void draw(Game *game) {
              playerHealthFontSize, WHITE);
 
     EndTextureMode();
-  }
+}
 
   ClearBackground(BLACK);
 
