@@ -863,8 +863,6 @@ void draw(Game *game) {
     
 
     pthread_mutex_lock(&game->players[i].mutex);
-    //sprintf(playerHealthText, "Player %d Health: %.1f", i + 1,
-    //      game->players[i].health);
     sprintf(playerHealthText, "%.1f",
           game->players[i].health);
     pthread_mutex_unlock(&game->players[i].mutex);
@@ -900,9 +898,9 @@ void draw(Game *game) {
   }
 
   // Battery Bar
-  float batteryPercent = game->battery;
+  float batteryPercent = game->battery / 100.0f;
   if (batteryPercent > 1.0f) batteryPercent = 1.0f;
-  if (batteryPercent > 0.0f) batteryPercent = 0.0f;
+  if (batteryPercent < 0.0f) batteryPercent = 0.0f;
   
   Rectangle batteryBarBack = {
     0,
@@ -913,7 +911,7 @@ void draw(Game *game) {
   DrawRectangleRec(batteryBarBack, GRAY);
 
   Color batteryColor = batteryPercent > 0.6f ? GREEN : 
-                      (batteryPercent > 0.3f? YELLOW : RED);
+                      (batteryPercent > 0.3f ? YELLOW : RED);
 
   Rectangle batteryBarFront = {
     batteryBarBack.x,
@@ -924,11 +922,11 @@ void draw(Game *game) {
   DrawRectangleRec(batteryBarFront, batteryColor);
 
   char batteryPercentText[128];
-  sprintf(batteryPercentText, "%.1f%%", game->battery);
+  sprintf(batteryPercentText, "%.1f volts", game->battery);
   DrawText(batteryPercentText,
   GetScreenWidth() / 2 - MeasureText(batteryPercentText, 18) / 2,
   1,
-  10, WHITE);
+  18, WHITE);
 
   // Draw FPS
   DrawFPS(0, batteryBarBack.height + 5);
@@ -942,18 +940,8 @@ void draw(Game *game) {
   sprintf(enemiesAliveText, "Enemies Alive: %d", enemiesLeft);
   int enemiesAliveFontSize = 25;
 
-  DrawText(enemiesAliveText, GetScreenWidth() * 0.01, (batteryBarBack.height+5)  ,
+  DrawText(enemiesAliveText, GetScreenWidth() * 0.01, batteryBarBack.height+30,
            enemiesAliveFontSize, WHITE);
-
-  //Draw battery left
-  char batteryText[128];
-  sprintf(batteryText, "Battery: %.1f Volts", game->battery);
-  int batteryFontSize = 25;
-
-  DrawText(batteryText, GetScreenWidth()*0.01,
-  batteryBarBack.height+5 + enemiesAliveFontSize, 
-  batteryFontSize, 
-  WHITE);
 
   // Draw Solar Cells Collected
   char solarCellsText[128];
@@ -961,7 +949,7 @@ void draw(Game *game) {
   int solarCellsFontSize = 25;
 
   DrawText(solarCellsText, GetScreenWidth() * 0.01,
-           batteryBarBack.height+5 + enemiesAliveFontSize + batteryFontSize, solarCellsFontSize,
+           batteryBarBack.height+30 + enemiesAliveFontSize, solarCellsFontSize,
            WHITE);
 
   // Draw wave number
@@ -970,7 +958,7 @@ void draw(Game *game) {
   int waveNumberFontSize = 25;
 
   DrawText(waveNumberText, GetScreenWidth() * 0.01,
-  batteryBarBack.height+5 + enemiesAliveFontSize + batteryFontSize + solarCellsFontSize, waveNumberFontSize,
+  batteryBarBack.height+30 + enemiesAliveFontSize + solarCellsFontSize, waveNumberFontSize,
            WHITE);
 
   // Draw Time to next wave
@@ -989,7 +977,7 @@ void draw(Game *game) {
   int timeToNextWaveFontSize = 25;
 
   DrawText(timeToNextWaveText, GetScreenWidth() * 0.01,
-          batteryBarBack.height+5 + enemiesAliveFontSize + batteryFontSize + solarCellsFontSize + waveNumberFontSize,
+          batteryBarBack.height+30 + enemiesAliveFontSize + solarCellsFontSize + waveNumberFontSize,
           timeToNextWaveFontSize, WHITE);
 
   // Draw shown to player
