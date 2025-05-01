@@ -1,7 +1,6 @@
 #include <pthread.h>
 #include <raylib.h>
 #include <semaphore.h>
-#include <stdlib.h>
 
 // Player Struct
 typedef struct {
@@ -52,6 +51,16 @@ typedef struct {
   int waitTime;   // time in seconds before enemies are spawned
 } EnemyWave;
 
+typedef struct {
+  Sound *buffer;
+  int currentBuff, buffsize;
+} MultiSound;
+
+typedef struct {
+  MultiSound *shoot;
+
+} GameSound;
+
 // Game Struct
 typedef struct {
   bool paused;
@@ -72,6 +81,7 @@ typedef struct {
 
   Player *players;
   int playerCount;
+  int gunRange;
 
   Enemy *enemies;
   int maxEnemies;
@@ -93,7 +103,9 @@ typedef struct {
   int messageDuration, messageAddedFrame, messageFontSize;
 
   Viewport *viewports;
-  Texture2D playerTextures[2]; // Add this for player textures
+  Texture2D playerTextures[2];
+
+  GameSound *sound;
 } Game;
 
 // Viewport Thread Arguments Struct

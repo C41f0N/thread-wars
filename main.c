@@ -17,6 +17,36 @@ int controls[3][7] = {
     {KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT, KEY_ENTER, KEY_NINE, KEY_ZERO},
 };
 
+MultiSound *initMultiSound(char filename[]) {
+  MultiSound *multiSound = malloc(sizeof(MultiSound));
+
+  multiSound->buffsize = 10;
+  multiSound->currentBuff = 0;
+  multiSound->buffer = calloc(sizeof(Sound), multiSound->buffsize);
+
+  // load audio into first
+  multiSound->buffer[0] = LoadSound(filename);
+
+  // create aliases everywhere else
+  for (int i = 0; i < multiSound->buffsize; i++) {
+    multiSound->buffer[i] = LoadSoundAlias(multiSound->buffer[0]);
+  }
+
+  return multiSound;
+}
+
+void playMultiSound(MultiSound *multiSound) {
+  PlaySound(multiSound->buffer[multiSound->currentBuff]);
+  multiSound->currentBuff =
+      (multiSound->currentBuff + 1) % multiSound->buffsize;
+}
+
+void initGameSounds(Game *game) {
+  game->sound = calloc(sizeof(GameSound), 1);
+
+  game->sound->shoot = initMultiSound("assets/audio/shoot.wav");
+};
+
 void drawMessage(Game *game) {
   int messageFontSize = 45;
 
@@ -564,6 +594,7 @@ void *updatePlayer(void *arg) {
 
     // Shoot action
     if (IsKeyPressed(controls[controlScheme][4])) {
+      playMultiSound(game->sound->shoot);
 
       float enemyHealth = 0.1;
 
@@ -574,11 +605,15 @@ void *updatePlayer(void *arg) {
             getClosestEnemyIndex(game, viewport->player->position);
         pthread_mutex_unlock(&viewport->player->mutex);
 
-        if (closestEnemy != -1) {
+        if (closestEnemy != -1 &&
+            getDistanceBetweenVectors(game->enemies[closestEnemy].position,
+                                      viewport->player->position) <=
+                game->gunRange) {
           pthread_mutex_lock(&game->batteryMutex);
 
           killEnemy(game, closestEnemy);
           game->battery -= enemyHealth;
+          playMultiSound(game->sound->shoot);
 
           pthread_mutex_unlock(&game->batteryMutex);
         }
@@ -897,6 +932,7 @@ int main(int argc, char **args) {
 
   srand(time(NULL));
   InitWindow(0, 0, "Thread Wars");
+  InitAudioDevice();
 
   if (!IsWindowFullscreen()) {
     ToggleFullscreen();
@@ -908,6 +944,8 @@ int main(int argc, char **args) {
 
   sprintf(game.message, "");
   game.messageDuration = 1;
+
+  game.gunRange = 500;
 
   game.maxEnemies = 300;
   game.enemyCount = 0;
@@ -932,6 +970,7 @@ int main(int argc, char **args) {
   game.numWaves = 3;
   game.currentWave = 0;
 
+  initGameSounds(&game);
   initializeWaves(&game);
   initializePlayers(&game);
   initializeEnemies(&game);
@@ -1021,15 +1060,8 @@ int main(int argc, char **args) {
   }
 
   game.isQuitting = true;
-
-  // // killSolarChargerComputers
-  // for (int i = 0; i < game.numSolarChargesComputers; i++) {
-  //   pthread_join(*game.solarChargesComputingThreads, NULL);
-  // }
-
-  // killViewports(&game);
-
   CloseWindow();
+  CloseAudioDevice();
 
   return 0;
 }
