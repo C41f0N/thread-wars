@@ -1,3 +1,5 @@
 /.vscode
 /main
 /tempCodeRunnerFile.c
+.gitignore
+tests/audio_test

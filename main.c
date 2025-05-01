@@ -153,6 +153,7 @@ void initializeSolarChargers(Game *game) {
 void buildSolarCharger(Game *game, Vector2 position, int size) {
 
   if (game->solarCellsCollected < size * 10) {
+    showMessage(game, "Not enough solar cells, collect more.", 20);
     return;
   }
 
@@ -539,6 +540,32 @@ void killEnemy(Game *game, int enemyIndex) {
   pthread_mutex_unlock(&game->enemyCountMutex);
 }
 
+void handleShoot(Game *game, Player *player) {
+  float enemyHealth = 0.1;
+
+  if (game->battery > enemyHealth) {
+
+    pthread_mutex_lock(&player->mutex);
+    int closestEnemy = getClosestEnemyIndex(game, player->position);
+    pthread_mutex_unlock(&player->mutex);
+
+    if (closestEnemy != -1 &&
+        getDistanceBetweenVectors(game->enemies[closestEnemy].position,
+                                  player->position) <= game->gunRange) {
+      pthread_mutex_lock(&game->batteryMutex);
+
+      playMultiSound(game->sound->shoot);
+      killEnemy(game, closestEnemy);
+      game->battery -= enemyHealth;
+      playMultiSound(game->sound->shoot);
+
+      pthread_mutex_unlock(&game->batteryMutex);
+    }
+  } else {
+    showMessage(game, "[!] Not enough battery, make solar panels", 20);
+  }
+}
+
 void *updatePlayer(void *arg) {
   ViewportThreadArgument *args = (ViewportThreadArgument *)arg;
   Game *game = args->game;
@@ -602,29 +629,7 @@ void *updatePlayer(void *arg) {
     // Shoot action
     if (IsKeyPressed(controls[controlScheme][4])) {
 
-      float enemyHealth = 0.1;
-
-      if (game->battery > enemyHealth) {
-
-        pthread_mutex_lock(&viewport->player->mutex);
-        int closestEnemy =
-            getClosestEnemyIndex(game, viewport->player->position);
-        pthread_mutex_unlock(&viewport->player->mutex);
-
-        if (closestEnemy != -1 &&
-            getDistanceBetweenVectors(game->enemies[closestEnemy].position,
-                                      viewport->player->position) <=
-                game->gunRange) {
-          pthread_mutex_lock(&game->batteryMutex);
-
-          playMultiSound(game->sound->shoot);
-          killEnemy(game, closestEnemy);
-          game->battery -= enemyHealth;
-          playMultiSound(game->sound->shoot);
-
-          pthread_mutex_unlock(&game->batteryMutex);
-        }
-      }
+      handleShoot(game, viewport->player);
     }
 
     // Camera controls (global)
