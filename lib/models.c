@@ -57,7 +57,7 @@ typedef struct {
 } MultiSound;
 
 typedef struct {
-  MultiSound *shoot;
+  MultiSound *shoot, *pickup, *place;
 
 } GameSound;
 

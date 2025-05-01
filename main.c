@@ -45,6 +45,8 @@ void initGameSounds(Game *game) {
   game->sound = calloc(sizeof(GameSound), 1);
 
   game->sound->shoot = initMultiSound("assets/audio/shoot.wav");
+  game->sound->pickup = initMultiSound("assets/audio/pickup.wav");
+  game->sound->place = initMultiSound("assets/audio/place.wav");
 };
 
 void drawMessage(Game *game) {
@@ -155,6 +157,7 @@ void buildSolarCharger(Game *game, Vector2 position, int size) {
   }
 
   pthread_mutex_lock(&game->solarCellsMutex);
+  playMultiSound(game->sound->place);
   game->solarCellsCollected -= size * 10;
   pthread_mutex_unlock(&game->solarCellsMutex);
 
@@ -393,8 +396,8 @@ void collectSolarCells(Game *game, Player *player) {
 
       // Remove Solar Cell
       game->solarCellsCollected++;
+      playMultiSound(game->sound->pickup);
       removeSolarCell(game, i);
-      printf("REMOVING SOLAR CELL\n");
     }
   }
   pthread_mutex_unlock(&game->solarCellsMutex);
@@ -581,20 +584,23 @@ void *updatePlayer(void *arg) {
     // Build Solar Charger Small
     if (IsKeyPressed(controls[controlScheme][5])) {
       pthread_mutex_lock(&viewport->player->mutex);
+
       buildSolarCharger(game, viewport->player->position, 1);
+
       pthread_mutex_unlock(&viewport->player->mutex);
     }
 
     // Build Solar Charger Large
     if (IsKeyPressed(controls[controlScheme][6])) {
       pthread_mutex_lock(&viewport->player->mutex);
+
       buildSolarCharger(game, viewport->player->position, 2);
+
       pthread_mutex_unlock(&viewport->player->mutex);
     }
 
     // Shoot action
     if (IsKeyPressed(controls[controlScheme][4])) {
-      playMultiSound(game->sound->shoot);
 
       float enemyHealth = 0.1;
 
@@ -611,6 +617,7 @@ void *updatePlayer(void *arg) {
                 game->gunRange) {
           pthread_mutex_lock(&game->batteryMutex);
 
+          playMultiSound(game->sound->shoot);
           killEnemy(game, closestEnemy);
           game->battery -= enemyHealth;
           playMultiSound(game->sound->shoot);
@@ -996,7 +1003,6 @@ int main(int argc, char **args) {
   while (!WindowShouldClose()) {
 
     if (game.frameCount % (game.targetFPS * 5) == 0) {
-      printf("GENERATED SOLAR CELLS\n");
       generateSolarCells(&game);
     }
 
