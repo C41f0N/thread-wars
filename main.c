@@ -839,10 +839,10 @@ void draw(Game *game) {
 
     // Draw player health
     Rectangle healthBarBack = {
-      game->viewports[i].renderTexture->texture.width / 2 - 50,
-      game->viewports[i].renderTexture->texture.height - 30,
-      100,
-      10
+      game->viewports[i].renderTexture->texture.width / 2 - 160,
+      game->viewports[i].renderTexture->texture.height - 40,
+      340,
+      20
     };
     DrawRectangle(healthBarBack.x, healthBarBack.y, healthBarBack.width, healthBarBack.height, GRAY);
     char playerHealthText[128];
@@ -876,7 +876,7 @@ void draw(Game *game) {
                  MeasureText(playerHealthText, playerHealthFontSize) / 2,
              game->viewports[i].renderTexture->texture.height -
                  playerHealthFontSize -
-                 game->viewports[i].renderTexture->texture.height * 0.01,
+                 game->viewports[i].renderTexture->texture.height * 0.025,
              playerHealthFontSize, WHITE);
 
     EndTextureMode();
