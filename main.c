@@ -1088,7 +1088,7 @@ int main(int argc, char **args) {
 
   while (!WindowShouldClose() && !game.isQuitting) {
 
-    if (!IsSoundPlaying(game.sound->music)) {
+    if (!IsSoundPlaying(game.sound->music) && !game.paused) {
       PlaySound(game.sound->music);
     }
 
@@ -1101,9 +1101,13 @@ int main(int argc, char **args) {
         !game.gameWon) {
       game.paused = !game.paused;
       if (game.paused) {
+        StopSound(game.sound->music);
         game.showPauseMenu = game.paused;
         game.showControlsMenu = false;
         game.pauseMenuSelection = 0;
+      } else {
+
+        PlaySound(game.sound->music);
       }
     }
 
