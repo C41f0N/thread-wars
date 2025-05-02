@@ -106,6 +106,7 @@ typedef struct {
 
   Viewport *viewports;
   Texture2D playerTextures[2];
+  Texture2D zombieTexture;
 
   GameSound *sound;
 

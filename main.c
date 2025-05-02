@@ -270,6 +270,8 @@ void drawAimLine(Game *game, Player *player) {
 void initializeEnemies(Game *game) {
   game->enemies = calloc(game->maxEnemies, sizeof(Enemy));
 
+  game->zombieTexture = LoadTexture("assets/zombie.png");
+
   int range = (int)(GetScreenWidth() / game->playerCount);
 
   for (int i = 0; i < game->maxEnemies; i++) {
@@ -422,12 +424,28 @@ void drawEnemies(Game *game) {
   // Drawing all enemies
   for (int i = 0; i < game->maxEnemies; i++) {
     if (game->enemies[i].active) {
-      DrawRectangleRounded(
+
+      Rectangle sourceRect = {
+          0, 0,
+          // game->enemies[i].flipDir
+          1 * game->zombieTexture.width, // Flip width if direction is negative
+          game->zombieTexture.height};
+
+      // DrawTexturePro(
+      //     game->playerTextures[i % 2], sourceRect,
+      //     (Rectangle){
+      //         game->players[i].position.x - (float)game->players[i].size / 2,
+      //         game->players[i].position.y - (float)game->players[i].size / 2,
+      //         game->players[i].size, game->players[i].size},
+      // (Vector2){0, 0}, 0.0f, WHITE);
+
+      DrawTexturePro(
+          game->zombieTexture, sourceRect,
           (Rectangle){
               game->enemies[i].position.x - (float)game->enemies[i].size / 2,
               game->enemies[i].position.y - (float)game->enemies[i].size / 2,
               game->enemies[i].size, game->enemies[i].size},
-          1, 1, game->enemies[i].color);
+          (Vector2){0, 0}, 0.0f, WHITE);
     }
   }
 }
@@ -530,7 +548,7 @@ void addEnemies(Game *game, int n) {
 
     if (!game->enemies[i].active) {
       game->enemies[i].active = true;
-      game->enemies[i].size = 30;
+      game->enemies[i].size = 70;
       game->enemies[i].color = RED;
       game->enemies[i].damage = 5;
       game->enemies[i].speed = 200 / game->targetFPS;
@@ -713,30 +731,12 @@ void *updatePlayer(void *arg) {
   return NULL;
 }
 
-// void drawPlayers(Game *game)
-// {
-//   for (int i = 0; i < game->playerCount; i++)
-//   {
-//     pthread_mutex_lock(&game->players[i].mutex);
-//     DrawRectangleRounded(
-//         (Rectangle){
-//             game->players[i].position.x - (float)game->players[i].size / 2,
-//             game->players[i].position.y - (float)game->players[i].size / 2,
-//             game->players[i].size, game->players[i].size},
-//         0.5, 1, game->players[i].color);
-//     pthread_mutex_unlock(&game->players[i].mutex);
-//   }
-// }
-
-// In drawPlayers function:
 void drawPlayers(Game *game) {
   for (int i = 0; i < game->playerCount; i++) {
     pthread_mutex_lock(&game->players[i].mutex);
 
-    // Determine if the player is moving left or right
     float direction = game->players[i].position.x < 0 ? -1.0f : 1.0f;
 
-    // Flip the texture horizontally if moving left
     Rectangle sourceRect = {
         0, 0,
         game->players[i].flipDir *
