@@ -48,7 +48,14 @@ void initGameSounds(Game *game) {
   game->sound->pickup = initMultiSound("assets/audio/pickup.wav");
   game->sound->place = initMultiSound("assets/audio/place.wav");
   game->sound->noAmmo = initMultiSound("assets/audio/noAmmo.wav");
-  game->sound->zombie = LoadMusicStream("assets/audio/zombie.wav");
+
+  printf("HERE\n");
+  for (int i = 0; i < 7; i++) {
+    char filename[128];
+    sprintf(filename, "assets/audio/zombie/zombie%d.wav", i + 1);
+    printf("%s\n", filename);
+    game->sound->zombie[i] = LoadSound(filename);
+  }
 };
 
 void drawMessage(Game *game) {
@@ -282,6 +289,7 @@ void initializeEnemies(Game *game) {
     game->enemies[i].speed = (100 + (rand() % 101)) / game->targetFPS;
     game->enemies[i].position = (Vector2){((rand() % range) - (float)range / 2),
                                           (rand() % range) - (float)range / 2};
+    game->enemies->sound = LoadSoundAlias(game->sound->zombie[rand() % 7]);
   }
 }
 
@@ -465,6 +473,8 @@ void drawSolarChargers(Game *game) {
   }
 }
 
+bool playing = false;
+
 void updateEnemies(Game *game) {
   for (int i = 0; i < game->maxEnemies; i++) {
     // Skip inactive enemies
@@ -514,6 +524,14 @@ void updateEnemies(Game *game) {
       if (!game->enemies[j].active)
         continue;
 
+      // Check sound
+      if (!IsSoundPlaying(game->enemies[i].sound)) {
+        game->enemies[i].sound =
+            LoadSoundAlias(game->sound->zombie[rand() % 7]);
+        SetSoundVolume(game->enemies[i].sound, 0.5);
+        PlaySound(game->enemies[i].sound);
+      }
+
       if (i != j &&
           CheckCollisionCircles(
               game->enemies[i].position, (float)game->enemies[i].size * 0.55,
@@ -556,12 +574,7 @@ void addEnemies(Game *game, int n) {
           (Vector2){((rand() % game->mapSize) - (float)game->mapSize / 2),
                     (rand() % game->mapSize) - (float)game->mapSize / 2};
 
-      game->enemies[i].sound = LoadMusicStream("assets/audio/zombie.wav");
       printf("playing sound\n");
-      // SeekMusicStream(game->enemies[i].sound,
-      //                 (rand() % 100 / (float)100) *
-      //                     GetMusicTimeLength(game->enemies[i].sound));
-      // PlayMusicStream(game->enemies[i].sound);
 
       game->enemyCount++;
       n--;
@@ -575,7 +588,7 @@ void addEnemies(Game *game, int n) {
 
 void killEnemy(Game *game, int enemyIndex) {
   game->enemies[enemyIndex].active = false;
-  // StopMusicStream(game->enemies[enemyIndex].sound);
+  StopSound(game->enemies[enemyIndex].sound);
   pthread_mutex_lock(&game->enemyCountMutex);
   game->enemyCount--;
   pthread_mutex_unlock(&game->enemyCountMutex);
@@ -1046,13 +1059,13 @@ int main(int argc, char **args) {
   game.showControlsMenu = false;
   game.showPauseMenu = false;
 
+  initGameSounds(&game);
   initializeWaves(&game);
   initializePlayers(&game);
   initializeEnemies(&game);
   initializeSolarChargers(&game);
   initializeViewports(&game);
   initializeSolarCells(&game);
-  initGameSounds(&game);
 
   pthread_mutex_init(&game.enemyCountMutex, NULL);
   pthread_mutex_init(&game.batteryMutex, NULL);
