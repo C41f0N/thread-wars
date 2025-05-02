@@ -468,7 +468,7 @@ void drawSolarChargers(Game *game) {
                           (float)game->solarChargers[i].height / 4,
                       game->solarChargers[i].width,
                       game->solarChargers[i].height},
-          0, 1, WHITE);
+          0, 1, (Color){50, 50, 50, 255});
     }
   }
 }
