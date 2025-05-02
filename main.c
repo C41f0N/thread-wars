@@ -1085,10 +1085,10 @@ int main(int argc, char **args) {
     }
 
     // Pausing
-    if (IsKeyPressed(KEY_P)) {
-      if (!game.gameOver) {
+    if (IsKeyPressed(KEY_P) && !game.gameOver && !game.gameWon){
         game.paused = !game.paused;
-      }
+        game.showPauseMenu = game.paused;
+        game.showControlsMenu = false;
     }
 
     // Adding enemies
@@ -1112,14 +1112,76 @@ int main(int argc, char **args) {
     // Drawing everything to screen
     draw(&game);
 
+    // pause menu
     if (game.paused && !game.gameOver && !game.gameWon) {
-      DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
-      char enemiesAliveText[] = "PAUSED";
+      DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.7));
+      int fontSize = GetScreenHeight() * 0.04;
+      int titleSize = GetScreenHeight() * 0.05;
+      int centerX = GetScreenWidth() / 2;
+
+      DrawText("CONTROLS", centerX - MeasureText("CONTROLS", titleSize)/2, GetScreenHeight() * 2, titleSize, WHITE);
+
+    // Player1
+    DrawText("PLAYER 1:", centerX - MeasureText("PLAYER 1:", fontSize) / 2, GetScreenHeight() * 0.3, fontSize, YELLOW);
+    DrawText("WASD - Move", centerX - MeasureText("WASD - Move", fontSize) / 2, GetScreenHeight() * 0.35, fontSize, YELLOW);
+    DrawText("SPACE - Shoot", centerX - MeasureText("SPACE - Shoot", fontSize) / 2, GetScreenHeight() * 0.4, fontSize, YELLOW);
+    DrawText("1/2 - Build Solar (Small/Large)", centerX - MeasureText("1/2 - Build Solar (Small/Large)", fontSize) / 2, GetScreenHeight() * 0.45, fontSize, YELLOW);
+    
+    // Player2
+    DrawText("PLAYER 2:", centerX - MeasureText("PLAYER 2:", fontSize) / 2, GetScreenHeight() * 0.55, fontSize, YELLOW);
+    DrawText("ARROWS - Move", centerX - MeasureText("ARROWS - Move", fontSize) / 2, GetScreenHeight() * 0.60, fontSize, YELLOW);
+    DrawText("ENTER - Shoot", centerX - MeasureText("ENTER - Shoot", fontSize) / 2, GetScreenHeight() * 0.65, fontSize, YELLOW);
+    DrawText("9/0 - Build Solar (Small/Large)", centerX - MeasureText("9/0 - Build Solar (Small/Large)", fontSize) / 2, GetScreenHeight() * 0.70, fontSize, YELLOW);
+    
+    // Back
+    DrawText("Press ESC to go back", centerX - MeasureText("Press ESC to go back", fontSize) / 2, GetScreenHeight() * 0.85, fontSize, YELLOW);
+    if(IsKeyPressed(KEY_ESCAPE)){
+      game.showControlsMenu = false;
+    } else if (game.showControlsMenu){
+      DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.7));
+
       int fontSize = GetScreenHeight() * 0.05;
-      DrawText(enemiesAliveText,
-               GetScreenWidth() / 2 -
-                   MeasureText(enemiesAliveText, fontSize) / 2,
-               GetScreenHeight() / 2 - fontSize / 2, fontSize, WHITE);
+      int buttonHeight = GetScreenHeight() * 0.08;
+      int buttonWidth = GetScreenWidth() * 0.3;
+      int buttonSpacing = GetScreenHeight() * 0.02;
+
+      int centerX = GetScreenWidth() / 2;
+      int startY = GetScreenHeight() / 2 - (buttonHeight * 3 + buttonSpacing * 2)/ 2;
+
+      DrawText("PAUSED", centerX - MeasureText("Paused", fontSize)/2, startY - fontSize - buttonSpacing, fontSize, WHITE);
+
+      if(IsKeyPressed(KEY_DOWN)){
+        game.pauseMenuSelection = (game.pauseMenuSelection + 1) % 3;
+      }
+      if(IsKeyPressed(KEY_UP)){
+        game.pauseMenuSelection = (game.pauseMenuSelection - 1 + 3) % 3;
+      }
+
+      Color restartColor = game.pauseMenuSelection == 0 ? YELLOW : WHITE;
+      Color controlsColor = game.pauseMenuSelection == 2 ? YELLOW : WHITE;
+      Color endGameColor = game.pauseMenuSelection == 3 ? YELLOW : WHITE;
+      
+      DrawRectangle(centerX - buttonWidth/2, startY, buttonWidth, buttonHeight, LIGHTGRAY);
+      DrawText("Restart", centerX - MeasureText("Restart", fontSize)/2, startY + (buttonHeight - fontSize)/2 , fontSize, restartColor);
+      DrawRectangle(centerX - buttonWidth/2, startY, buttonWidth, buttonHeight, LIGHTGRAY);
+      DrawText("Controls", centerX - MeasureText("Controls", fontSize)/2, startY + (buttonHeight - fontSize)/2 , fontSize, controlsColor);
+      DrawRectangle(centerX - buttonWidth/2, startY, buttonWidth, buttonHeight, LIGHTGRAY);
+      DrawText("End Game", centerX - MeasureText("End Game", fontSize)/2, startY + (buttonHeight - fontSize)/2 , fontSize, endGameColor);
+      
+    // Handling Selection
+    if(IsKeyPressed(KEY_ENTER)){
+      // Restart
+      if(game.pauseMenuSelection == 0){
+      }
+      // Controls
+      if(game.pauseMenuSelection == 1){
+      }
+      // End Game
+      if(game.pauseMenuSelection == 2){
+      }
+    }
+    }
+      
     }
 
     if (game.gameOver) {

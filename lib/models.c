@@ -108,6 +108,10 @@ typedef struct {
   Texture2D playerTextures[2];
 
   GameSound *sound;
+
+  int pauseMenuSelection;
+  bool showControlsMenu;
+  bool showPauseMenu;
 } Game;
 
 // Viewport Thread Arguments Struct
