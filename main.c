@@ -986,22 +986,6 @@ void draw(Game *game) {
   drawMessage(game);
 }
 
-// void killViewports(Game *game)
-// {
-//   game->isQuitting = true;
-//   for (int i = 0; i < game->playerCount; i++)
-//   {
-//     // Join all threads
-//     pthread_join(game->viewports[i].thread, NULL);
-
-//     // Unloading all render textures out of the GPU
-//     UnloadRenderTexture(*game->viewports[i].renderTexture);
-
-//     // Destroy semaphores
-//     sem_destroy(&game->viewports[i].inputSemaphore);
-//   }
-// }
-// Add texture unloading in killViewports function
 // In killViewports function:
 void killViewports(Game *game) {
   game->isQuitting = true;
