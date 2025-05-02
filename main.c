@@ -44,6 +44,8 @@ void playMultiSound(MultiSound *multiSound) {
 void initGameSounds(Game *game) {
   game->sound = calloc(sizeof(GameSound), 1);
 
+  game->sound->music = LoadSound("assets/audio/music.wav");
+
   game->sound->shoot = initMultiSound("assets/audio/shoot.wav");
   game->sound->pickup = initMultiSound("assets/audio/pickup.wav");
   game->sound->place = initMultiSound("assets/audio/place.wav");
@@ -1085,6 +1087,10 @@ int main(int argc, char **args) {
   SetExitKey(KEY_NULL);
 
   while (!WindowShouldClose() && !game.isQuitting) {
+
+    if (!IsSoundPlaying(game.sound->music)) {
+      PlaySound(game.sound->music);
+    }
 
     if (game.frameCount % (game.targetFPS * 5) == 0) {
       generateSolarCells(&game);

@@ -58,6 +58,7 @@ typedef struct {
 } MultiSound;
 
 typedef struct {
+  Sound music;
   MultiSound *shoot, *pickup, *place, *noAmmo;
   Sound zombie[7];
 
