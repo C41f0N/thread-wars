@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-
+#include <string.h>
 /*
     Stores keymaps for each player
     Sequence: Up, Left, Down, Right
@@ -17,7 +17,8 @@ int controls[3][7] = {
     {KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT, KEY_ENTER, KEY_NINE, KEY_ZERO},
 };
 
-MultiSound *initMultiSound(char filename[]) {
+MultiSound *initMultiSound(char filename[])
+{
   MultiSound *multiSound = malloc(sizeof(MultiSound));
 
   multiSound->buffsize = 50;
@@ -28,20 +29,23 @@ MultiSound *initMultiSound(char filename[]) {
   multiSound->buffer[0] = LoadSound(filename);
 
   // create aliases everywhere else
-  for (int i = 0; i < multiSound->buffsize; i++) {
+  for (int i = 0; i < multiSound->buffsize; i++)
+  {
     multiSound->buffer[i] = LoadSoundAlias(multiSound->buffer[0]);
   }
 
   return multiSound;
 }
 
-void playMultiSound(MultiSound *multiSound) {
+void playMultiSound(MultiSound *multiSound)
+{
   PlaySound(multiSound->buffer[multiSound->currentBuff]);
   multiSound->currentBuff =
       (multiSound->currentBuff + 1) % multiSound->buffsize;
 }
 
-void initGameSounds(Game *game) {
+void initGameSounds(Game *game)
+{
   game->sound = calloc(sizeof(GameSound), 1);
 
   game->sound->music = LoadSound("assets/audio/music.wav");
@@ -52,7 +56,8 @@ void initGameSounds(Game *game) {
   game->sound->noAmmo = initMultiSound("assets/audio/noAmmo.wav");
 
   printf("HERE\n");
-  for (int i = 0; i < 7; i++) {
+  for (int i = 0; i < 7; i++)
+  {
     char filename[128];
     sprintf(filename, "assets/audio/zombie/zombie%d.wav", i + 1);
     printf("%s\n", filename);
@@ -60,7 +65,8 @@ void initGameSounds(Game *game) {
   }
 };
 
-void drawMessage(Game *game) {
+void drawMessage(Game *game)
+{
   int messageFontSize = 45;
 
   DrawRectangle(GetScreenWidth() * 0.5 -
@@ -76,7 +82,8 @@ void drawMessage(Game *game) {
            (Color){255, 255, 255, 255 * game->messageOpacity});
 }
 
-void updateMessage(Game *game) {
+void updateMessage(Game *game)
+{
   game->messageOpacity =
       1 - ((float)(game->frameCount - game->messageAddedFrame) /
            (game->messageDuration * game->targetFPS));
@@ -87,14 +94,16 @@ void updateMessage(Game *game) {
     game->messageOpacity = 0;
 }
 
-void showMessage(Game *game, char message[], int fontSize) {
+void showMessage(Game *game, char message[], int fontSize)
+{
   sprintf(game->message, "%s", message);
   game->messageFontSize = fontSize;
   game->messageAddedFrame = game->frameCount;
   game->messageOpacity = 1;
 }
 
-void *computeSolarChargers(void *arg) {
+void *computeSolarChargers(void *arg)
+{
 
   Game *game = ((SolarChargingComputerThreadArgument *)(arg))->game;
   int j =
@@ -103,8 +112,10 @@ void *computeSolarChargers(void *arg) {
 
   int localFrameCount = -1;
 
-  while (true) {
-    if (localFrameCount == game->frameCount) {
+  while (true)
+  {
+    if (localFrameCount == game->frameCount)
+    {
       continue;
     }
 
@@ -113,8 +124,10 @@ void *computeSolarChargers(void *arg) {
     for (int i = j * (game->maxSolarChargers / game->numSolarChargesComputers);
          i <
          (j + 1) * (game->maxSolarChargers / game->numSolarChargesComputers);
-         i++) {
-      if (game->solarChargers[i].active) {
+         i++)
+    {
+      if (game->solarChargers[i].active)
+      {
 
         // Get charge value
         float chargeValue = ((float)(game->solarChargers[i].height *
@@ -129,16 +142,19 @@ void *computeSolarChargers(void *arg) {
       }
     }
 
-    if (game->isQuitting) {
+    if (game->isQuitting)
+    {
       pthread_exit(NULL);
     }
   }
 }
 
-void initializeSolarChargers(Game *game) {
+void initializeSolarChargers(Game *game)
+{
   game->solarChargers = calloc(game->maxSolarChargers, sizeof(SolarCharger));
 
-  for (int i = 0; i < game->maxSolarChargers; i++) {
+  for (int i = 0; i < game->maxSolarChargers; i++)
+  {
     game->solarChargers[i].active = false;
     game->solarChargers[i].height = 0;
     game->solarChargers[i].width = 0;
@@ -149,7 +165,8 @@ void initializeSolarChargers(Game *game) {
       (pthread_t *)calloc(game->numSolarChargesComputers, sizeof(pthread_t));
 
   // Start computing threads for solar charges
-  for (int i = 0; i < game->numSolarChargesComputers; i++) {
+  for (int i = 0; i < game->numSolarChargesComputers; i++)
+  {
 
     SolarChargingComputerThreadArgument *arg =
         malloc(sizeof(SolarChargingComputerThreadArgument));
@@ -161,9 +178,11 @@ void initializeSolarChargers(Game *game) {
   }
 }
 
-void buildSolarCharger(Game *game, Vector2 position, int size) {
+void buildSolarCharger(Game *game, Vector2 position, int size)
+{
 
-  if (game->solarCellsCollected < size * 10) {
+  if (game->solarCellsCollected < size * 10)
+  {
     showMessage(game, "Not enough solar cells, collect more.", 20);
     return;
   }
@@ -173,8 +192,10 @@ void buildSolarCharger(Game *game, Vector2 position, int size) {
   game->solarCellsCollected -= size * 10;
   pthread_mutex_unlock(&game->solarCellsMutex);
 
-  for (int i = 0; i < game->maxSolarChargers; i++) {
-    if (!game->solarChargers[i].active) {
+  for (int i = 0; i < game->maxSolarChargers; i++)
+  {
+    if (!game->solarChargers[i].active)
+    {
       game->solarChargers[i].active = true;
       game->solarChargers[i].height = 100;
       game->solarChargers[i].width = size * 100;
@@ -212,7 +233,8 @@ void buildSolarCharger(Game *game, Vector2 position, int size) {
 // }
 
 // In initializePlayers function:
-void initializePlayers(Game *game) {
+void initializePlayers(Game *game)
+{
   Color playerColors[] = {YELLOW, BLUE, GREEN, PINK};
 
   game->players = (Player *)calloc(sizeof(Player), game->playerCount);
@@ -222,12 +244,14 @@ void initializePlayers(Game *game) {
   game->playerTextures[1] = LoadTexture("assets/player2.png");
 
   // Verify textures loaded correctly
-  if (game->playerTextures[0].id == 0 || game->playerTextures[1].id == 0) {
+  if (game->playerTextures[0].id == 0 || game->playerTextures[1].id == 0)
+  {
     printf("ERROR: Failed to load player textures!\n");
     exit(1);
   }
 
-  for (int i = 0; i < game->playerCount; i++) {
+  for (int i = 0; i < game->playerCount; i++)
+  {
     game->players[i].size = 100;
     game->players[i].flipDir = 1;
     game->players[i].speed = (float)600 / game->targetFPS;
@@ -236,25 +260,31 @@ void initializePlayers(Game *game) {
     game->players[i].position =
         (Vector2){0 + i * (20 + game->players[i].size), 0};
 
-    for (int j = 0; j < game->playerCount; j++) {
-      if (pthread_mutex_init(&game->players[j].mutex, NULL)) {
+    for (int j = 0; j < game->playerCount; j++)
+    {
+      if (pthread_mutex_init(&game->players[j].mutex, NULL))
+      {
         exit(0);
       };
     }
   }
 }
 
-int getClosestEnemyIndex(Game *game, Vector2 from) {
+int getClosestEnemyIndex(Game *game, Vector2 from)
+{
   float shortestDistance = INT_MAX;
   int closestEnemyIndex = -1;
 
-  for (int i = 0; i < game->maxEnemies; i++) {
-    if (game->enemies[i].active) {
+  for (int i = 0; i < game->maxEnemies; i++)
+  {
+    if (game->enemies[i].active)
+    {
 
       float distance =
           getDistanceBetweenVectors(game->enemies[i].position, from);
 
-      if (distance < shortestDistance) {
+      if (distance < shortestDistance)
+      {
         shortestDistance = distance;
         closestEnemyIndex = i;
       }
@@ -264,26 +294,30 @@ int getClosestEnemyIndex(Game *game, Vector2 from) {
   return closestEnemyIndex;
 }
 
-void drawAimLine(Game *game, Player *player) {
+void drawAimLine(Game *game, Player *player)
+{
   int closestEnemyIndex = getClosestEnemyIndex(game, player->position);
   Vector2 enemyPos = game->enemies[closestEnemyIndex].position;
 
   if (closestEnemyIndex != -1 &&
-      getDistanceBetweenVectors(player->position, enemyPos) <= game->gunRange) {
+      getDistanceBetweenVectors(player->position, enemyPos) <= game->gunRange)
+  {
 
     DrawLine(player->position.x, player->position.y, enemyPos.x, enemyPos.y,
              YELLOW);
   }
 }
 
-void initializeEnemies(Game *game) {
+void initializeEnemies(Game *game)
+{
   game->enemies = calloc(game->maxEnemies, sizeof(Enemy));
 
   game->zombieTexture = LoadTexture("assets/zombie.png");
 
   int range = (int)(GetScreenWidth() / game->playerCount);
 
-  for (int i = 0; i < game->maxEnemies; i++) {
+  for (int i = 0; i < game->maxEnemies; i++)
+  {
     game->enemies[i].size = 30;
     game->enemies[i].color = RED;
     game->enemies[i].active = false;
@@ -295,7 +329,8 @@ void initializeEnemies(Game *game) {
   }
 }
 
-void initializeWaves(Game *game) {
+void initializeWaves(Game *game)
+{
   game->waves = calloc(sizeof(EnemyWave), game->numWaves);
 
   // Setting up waves
@@ -314,7 +349,8 @@ void initializeWaves(Game *game) {
 }
 
 // Function to create and initialize viewports
-void initializeViewports(Game *game) {
+void initializeViewports(Game *game)
+{
 
   // Allocating in memory
   RenderTexture2D *renderTextures =
@@ -326,11 +362,13 @@ void initializeViewports(Game *game) {
   sem_init(&game->viewports[0].inputSemaphore, 0, 1);
 
   // Initializing the rest as inactive
-  for (int i = 1; i < game->playerCount; i++) {
+  for (int i = 1; i < game->playerCount; i++)
+  {
     sem_init(&game->viewports[i].inputSemaphore, 0, 0);
   }
 
-  for (int i = 0; i < game->playerCount; i++) {
+  for (int i = 0; i < game->playerCount; i++)
+  {
     // Creating render textures
     renderTextures[i] = LoadRenderTexture(GetScreenWidth() / game->playerCount,
                                           GetScreenHeight());
@@ -351,22 +389,27 @@ void initializeViewports(Game *game) {
   }
 }
 
-void initializeSolarCells(Game *game) {
+void initializeSolarCells(Game *game)
+{
   game->solarCells = calloc(game->maxSolarCells, sizeof(SolarCell));
 
-  for (int i = 0; i < game->maxSolarCells; i++) {
+  for (int i = 0; i < game->maxSolarCells; i++)
+  {
     game->solarCells[i].active = false;
     game->solarCells[i].position = (Vector2){0, 0};
     game->solarCells[i].size = 0;
   }
 }
 
-void addSolarCell(Game *game, Vector2 position) {
+void addSolarCell(Game *game, Vector2 position)
+{
 
   pthread_mutex_lock(&game->solarCellsMutex);
-  for (int i = 0; i < game->maxSolarCells; i++) {
+  for (int i = 0; i < game->maxSolarCells; i++)
+  {
 
-    if (!game->solarCells[i].active) {
+    if (!game->solarCells[i].active)
+    {
       game->solarCells[i].active = true;
       game->solarCells[i].position = position;
       game->solarCells[i].size = 20;
@@ -376,19 +419,24 @@ void addSolarCell(Game *game, Vector2 position) {
   pthread_mutex_unlock(&game->solarCellsMutex);
 }
 
-void generateSolarCells(Game *game) {
+void generateSolarCells(Game *game)
+{
   // Generate n solar cells in random places
   int n = 20;
   int radius = game->mapSize / 2;
-  for (int i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++)
+  {
     addSolarCell(game, (Vector2){(rand() % radius * 2) - radius,
                                  (rand() % radius * 2) - radius});
   }
 }
 
-void drawSolarCells(Game *game) {
-  for (int i = 0; i < game->maxSolarCells; i++) {
-    if (game->solarCells[i].active) {
+void drawSolarCells(Game *game)
+{
+  for (int i = 0; i < game->maxSolarCells; i++)
+  {
+    if (game->solarCells[i].active)
+    {
       DrawRectangleRounded((Rectangle){game->solarCells[i].position.x -
                                            (float)game->solarCells[i].size / 2,
                                        game->solarCells[i].position.y -
@@ -400,16 +448,19 @@ void drawSolarCells(Game *game) {
   }
 }
 
-void removeSolarCell(Game *game, int cellIndex) {
+void removeSolarCell(Game *game, int cellIndex)
+{
 
   game->solarCells[cellIndex].active = false;
 }
 
-void collectSolarCells(Game *game, Player *player) {
+void collectSolarCells(Game *game, Player *player)
+{
   // Check collision against all cells with player
 
   pthread_mutex_lock(&game->solarCellsMutex);
-  for (int i = 0; i < game->maxSolarCells; i++) {
+  for (int i = 0; i < game->maxSolarCells; i++)
+  {
     if (game->solarCells[i].active &&
         CheckCollisionRecs(
             (Rectangle){player->position.x - (float)player->size / 2,
@@ -419,7 +470,8 @@ void collectSolarCells(Game *game, Player *player) {
                             (float)game->solarCells[i].size / 2,
                         game->solarCells[i].position.y -
                             (float)game->solarCells[i].size / 2,
-                        game->solarCells[i].size, game->solarCells[i].size})) {
+                        game->solarCells[i].size, game->solarCells[i].size}))
+    {
 
       // Remove Solar Cell
       game->solarCellsCollected++;
@@ -430,10 +482,13 @@ void collectSolarCells(Game *game, Player *player) {
   pthread_mutex_unlock(&game->solarCellsMutex);
 };
 
-void drawEnemies(Game *game) {
+void drawEnemies(Game *game)
+{
   // Drawing all enemies
-  for (int i = 0; i < game->maxEnemies; i++) {
-    if (game->enemies[i].active) {
+  for (int i = 0; i < game->maxEnemies; i++)
+  {
+    if (game->enemies[i].active)
+    {
 
       Rectangle sourceRect = {
           0, 0,
@@ -460,9 +515,12 @@ void drawEnemies(Game *game) {
   }
 }
 
-void drawSolarChargers(Game *game) {
-  for (int i = 0; i < game->maxSolarChargers; i++) {
-    if (game->solarChargers[i].active) {
+void drawSolarChargers(Game *game)
+{
+  for (int i = 0; i < game->maxSolarChargers; i++)
+  {
+    if (game->solarChargers[i].active)
+    {
       DrawRectangleRounded(
           (Rectangle){game->solarChargers[i].position.x -
                           (float)game->solarChargers[i].width / 4,
@@ -477,8 +535,10 @@ void drawSolarChargers(Game *game) {
 
 bool playing = false;
 
-void updateEnemies(Game *game) {
-  for (int i = 0; i < game->maxEnemies; i++) {
+void updateEnemies(Game *game)
+{
+  for (int i = 0; i < game->maxEnemies; i++)
+  {
     // Skip inactive enemies
     if (!game->enemies[i].active)
       continue;
@@ -486,13 +546,15 @@ void updateEnemies(Game *game) {
     Player *closestPlayer = NULL;
     float shortestDistance = INT_MAX;
 
-    for (int j = 0; j < game->playerCount; j++) {
+    for (int j = 0; j < game->playerCount; j++)
+    {
       pthread_mutex_lock(&game->players[j].mutex);
 
       float distance = getDistanceBetweenVectors(game->enemies[i].position,
                                                  game->players[j].position);
 
-      if (distance < shortestDistance) {
+      if (distance < shortestDistance)
+      {
         shortestDistance = distance;
         closestPlayer = &game->players[j];
       }
@@ -500,7 +562,8 @@ void updateEnemies(Game *game) {
     };
 
     // if close enough to player, stop and give him damage
-    if (shortestDistance < (float)closestPlayer->size) {
+    if (shortestDistance < (float)closestPlayer->size)
+    {
       pthread_mutex_lock(&closestPlayer->mutex);
       closestPlayer->health -= (float)game->enemies[i].damage / game->targetFPS;
       pthread_mutex_unlock(&closestPlayer->mutex);
@@ -520,14 +583,16 @@ void updateEnemies(Game *game) {
 
     // Check for collision with other enemies
     bool colliding = false;
-    for (int j = 0; j < game->maxEnemies; j++) {
+    for (int j = 0; j < game->maxEnemies; j++)
+    {
 
       // Skip inactive enemies
       if (!game->enemies[j].active)
         continue;
 
       // Check sound
-      if (!IsSoundPlaying(game->enemies[i].sound)) {
+      if (!IsSoundPlaying(game->enemies[i].sound))
+      {
         game->enemies[i].sound =
             LoadSoundAlias(game->sound->zombie[rand() % 7]);
         SetSoundVolume(game->enemies[i].sound, 0.5);
@@ -537,7 +602,8 @@ void updateEnemies(Game *game) {
       if (i != j &&
           CheckCollisionCircles(
               game->enemies[i].position, (float)game->enemies[i].size * 0.55,
-              game->enemies[j].position, (float)game->enemies[j].size * 0.55)) {
+              game->enemies[j].position, (float)game->enemies[j].size * 0.55))
+      {
         // If collission is detected, push the current enemy in the opposite
         // direction as the player
         colliding = true;
@@ -553,20 +619,24 @@ void updateEnemies(Game *game) {
       }
     }
     // Undo the move made earlier if colliding
-    if (colliding) {
+    if (colliding)
+    {
       game->enemies[i].position.x -= velocity.x;
       game->enemies[i].position.y -= velocity.y;
     }
   }
 }
 
-void addEnemies(Game *game, int n) {
+void addEnemies(Game *game, int n)
+{
   int i = 0;
   pthread_mutex_lock(&game->enemyCountMutex);
   while (n > 0 && game->enemyCount <= game->maxEnemies &&
-         i < game->maxEnemies) {
+         i < game->maxEnemies)
+  {
 
-    if (!game->enemies[i].active) {
+    if (!game->enemies[i].active)
+    {
       game->enemies[i].active = true;
       game->enemies[i].size = 70;
       game->enemies[i].color = RED;
@@ -588,7 +658,8 @@ void addEnemies(Game *game, int n) {
   pthread_mutex_unlock(&game->enemyCountMutex);
 }
 
-void killEnemy(Game *game, int enemyIndex) {
+void killEnemy(Game *game, int enemyIndex)
+{
   game->enemies[enemyIndex].active = false;
   StopSound(game->enemies[enemyIndex].sound);
   pthread_mutex_lock(&game->enemyCountMutex);
@@ -596,10 +667,12 @@ void killEnemy(Game *game, int enemyIndex) {
   pthread_mutex_unlock(&game->enemyCountMutex);
 }
 
-void handleShoot(Game *game, Player *player) {
+void handleShoot(Game *game, Player *player)
+{
   float enemyHealth = 0.1;
 
-  if (game->battery > enemyHealth) {
+  if (game->battery > enemyHealth)
+  {
 
     pthread_mutex_lock(&player->mutex);
     int closestEnemy = getClosestEnemyIndex(game, player->position);
@@ -607,7 +680,8 @@ void handleShoot(Game *game, Player *player) {
 
     if (closestEnemy != -1 &&
         getDistanceBetweenVectors(game->enemies[closestEnemy].position,
-                                  player->position) <= game->gunRange) {
+                                  player->position) <= game->gunRange)
+    {
       pthread_mutex_lock(&game->batteryMutex);
 
       playMultiSound(game->sound->shoot);
@@ -617,13 +691,16 @@ void handleShoot(Game *game, Player *player) {
 
       pthread_mutex_unlock(&game->batteryMutex);
     }
-  } else {
+  }
+  else
+  {
     playMultiSound(game->sound->noAmmo);
     showMessage(game, "[!] Not enough battery, make solar panels", 20);
   }
 }
 
-void *updatePlayer(void *arg) {
+void *updatePlayer(void *arg)
+{
   ViewportThreadArgument *args = (ViewportThreadArgument *)arg;
   Game *game = args->game;
   int viewportIndex = args->viewportIndex;
@@ -631,7 +708,8 @@ void *updatePlayer(void *arg) {
   int localFrameCount = -1;
   free(arg);
 
-  while (!game->isQuitting) {
+  while (!game->isQuitting)
+  {
     // Wait for this thread's turn
     sem_wait(&viewport->inputSemaphore);
 
@@ -639,7 +717,8 @@ void *updatePlayer(void *arg) {
     int currentFrame = game->frameCount;
 
     // Skip processing if we already handled this frame
-    if (localFrameCount == currentFrame) {
+    if (localFrameCount == currentFrame)
+    {
       sem_post(&game->viewports[(viewportIndex + 1) % game->playerCount]
                     .inputSemaphore);
       continue;
@@ -654,19 +733,22 @@ void *updatePlayer(void *arg) {
     // Movement controls (using simplified array access)
     if (IsKeyDown(controls[controlScheme][0]))
       direction.y = -1; // Up
-    if (IsKeyDown(controls[controlScheme][1])) {
+    if (IsKeyDown(controls[controlScheme][1]))
+    {
       direction.x = -1; // Left
       viewport->player->flipDir = -1;
     }
     if (IsKeyDown(controls[controlScheme][2]))
       direction.y = 1; // Down
-    if (IsKeyDown(controls[controlScheme][3])) {
+    if (IsKeyDown(controls[controlScheme][3]))
+    {
       direction.x = 1; // Right
       viewport->player->flipDir = 1;
     }
 
     // Build Solar Charger Small
-    if (IsKeyPressed(controls[controlScheme][5])) {
+    if (IsKeyPressed(controls[controlScheme][5]))
+    {
       pthread_mutex_lock(&viewport->player->mutex);
 
       buildSolarCharger(game, viewport->player->position, 1);
@@ -675,7 +757,8 @@ void *updatePlayer(void *arg) {
     }
 
     // Build Solar Charger Large
-    if (IsKeyPressed(controls[controlScheme][6])) {
+    if (IsKeyPressed(controls[controlScheme][6]))
+    {
       pthread_mutex_lock(&viewport->player->mutex);
 
       buildSolarCharger(game, viewport->player->position, 2);
@@ -684,20 +767,26 @@ void *updatePlayer(void *arg) {
     }
 
     // Shoot action
-    if (IsKeyPressed(controls[controlScheme][4])) {
+    if (IsKeyPressed(controls[controlScheme][4]))
+    {
 
       handleShoot(game, viewport->player);
     }
 
     // Camera controls (global)
-    if (viewportIndex == 0) { // Only process these once
-      if (IsKeyPressed(KEY_EQUAL)) {
-        for (int i = 0; i < game->playerCount; i++) {
+    if (viewportIndex == 0)
+    { // Only process these once
+      if (IsKeyPressed(KEY_EQUAL))
+      {
+        for (int i = 0; i < game->playerCount; i++)
+        {
           game->viewports[i].camera->zoom += 0.25;
         }
       }
-      if (IsKeyPressed(KEY_MINUS)) {
-        for (int i = 0; i < game->playerCount; i++) {
+      if (IsKeyPressed(KEY_MINUS))
+      {
+        for (int i = 0; i < game->playerCount; i++)
+        {
           game->viewports[i].camera->zoom -= 0.25;
         }
       }
@@ -707,7 +796,8 @@ void *updatePlayer(void *arg) {
     collectSolarCells(game, viewport->player);
 
     // Apply movement if game isn't paused
-    if (!game->paused && (direction.x != 0 || direction.y != 0)) {
+    if (!game->paused && (direction.x != 0 || direction.y != 0))
+    {
       direction = normalizeVector2(direction);
 
       Vector2 velocity = {direction.x * viewport->player->speed,
@@ -715,19 +805,23 @@ void *updatePlayer(void *arg) {
 
       int boundx = game->mapSize / 2, boundy = game->mapSize / 2;
 
-      if (velocity.x < 0 && viewport->player->position.x < -boundx) {
+      if (velocity.x < 0 && viewport->player->position.x < -boundx)
+      {
         velocity.x = 0;
       }
 
-      if (velocity.x > 0 && viewport->player->position.x > boundx) {
+      if (velocity.x > 0 && viewport->player->position.x > boundx)
+      {
         velocity.x = 0;
       }
 
-      if (velocity.y < 0 && viewport->player->position.y < -boundy) {
+      if (velocity.y < 0 && viewport->player->position.y < -boundy)
+      {
         velocity.y = 0;
       }
 
-      if (velocity.y > 0 && viewport->player->position.y > boundy) {
+      if (velocity.y > 0 && viewport->player->position.y > boundy)
+      {
         velocity.y = 0;
       }
 
@@ -746,8 +840,10 @@ void *updatePlayer(void *arg) {
   return NULL;
 }
 
-void drawPlayers(Game *game) {
-  for (int i = 0; i < game->playerCount; i++) {
+void drawPlayers(Game *game)
+{
+  for (int i = 0; i < game->playerCount; i++)
+  {
     pthread_mutex_lock(&game->players[i].mutex);
 
     float direction = game->players[i].position.x < 0 ? -1.0f : 1.0f;
@@ -771,31 +867,39 @@ void drawPlayers(Game *game) {
   }
 }
 
-void drawMap(Game *game) {
+void drawMap(Game *game)
+{
 
   DrawRectangleLines(-game->mapSize / 2, -game->mapSize / 2, game->mapSize,
                      game->mapSize, GREEN);
 }
 
-void win(Game *game) {
+void win(Game *game)
+{
   game->paused = true;
   game->gameWon = true;
 }
 
-void handleGameOver(Game *game) {
-  for (int i = 0; i < game->playerCount; i++) {
-    if (game->players[i].health < 0) {
+void handleGameOver(Game *game)
+{
+  for (int i = 0; i < game->playerCount; i++)
+  {
+    if (game->players[i].health < 0)
+    {
       game->paused = true;
       game->gameOver = true;
     }
   }
 }
 
-void generateEnemies(Game *game) {
-  if (game->currentWave < game->numWaves) {
+void generateEnemies(Game *game)
+{
+  if (game->currentWave < game->numWaves)
+  {
     if (game->frameCount >
         game->lastWaveFrame +
-            game->waves[game->currentWave].waitTime * game->targetFPS) {
+            game->waves[game->currentWave].waitTime * game->targetFPS)
+    {
 
       // Unleash the enemies for this wave
       char message[256];
@@ -806,16 +910,20 @@ void generateEnemies(Game *game) {
       game->lastWaveFrame = game->frameCount;
       game->currentWave++;
     }
-  } else {
+  }
+  else
+  {
     if (game->enemyCount <= 0)
       win(game);
   }
 }
 
-void draw(Game *game) {
+void draw(Game *game)
+{
 
   // Drawing on every viewport
-  for (int i = 0; i < game->playerCount; i++) {
+  for (int i = 0; i < game->playerCount; i++)
+  {
 
     // Updating camera to follow player
     pthread_mutex_lock(&game->players[i].mutex);
@@ -890,7 +998,8 @@ void draw(Game *game) {
   ClearBackground(BLACK);
 
   // Drawing the prepared viewports to a single screen sized rectangle
-  for (int i = 0; i < game->playerCount; i++) {
+  for (int i = 0; i < game->playerCount; i++)
+  {
     DrawTextureRec(
         game->viewports[i].renderTexture->texture,
         (Rectangle){0, 0, game->viewports[i].renderTexture->texture.width,
@@ -899,7 +1008,8 @@ void draw(Game *game) {
   }
 
   // Drawing line(s) between screens
-  for (int i = 1; i < game->playerCount; i++) {
+  for (int i = 1; i < game->playerCount; i++)
+  {
     DrawRectangle(i * (int)(GetScreenWidth() / game->playerCount) - 2, 0, 4,
                   GetScreenHeight(), WHITE);
   }
@@ -970,9 +1080,12 @@ void draw(Game *game) {
       game->targetFPS;
 
   char timeToNextWaveText[128];
-  if (secondsToNextWave >= 0) {
+  if (secondsToNextWave >= 0)
+  {
     sprintf(timeToNextWaveText, "Time to next wave: %ds", secondsToNextWave);
-  } else {
+  }
+  else
+  {
     sprintf(timeToNextWaveText, "Time to next wave: Inifinity");
   }
   int timeToNextWaveFontSize = 25;
@@ -987,9 +1100,11 @@ void draw(Game *game) {
 }
 
 // In killViewports function:
-void killViewports(Game *game) {
+void killViewports(Game *game)
+{
   game->isQuitting = true;
-  for (int i = 0; i < game->playerCount; i++) {
+  for (int i = 0; i < game->playerCount; i++)
+  {
     pthread_join(game->viewports[i].thread, NULL);
     UnloadRenderTexture(*game->viewports[i].renderTexture);
     sem_destroy(&game->viewports[i].inputSemaphore);
@@ -999,13 +1114,104 @@ void killViewports(Game *game) {
   UnloadTexture(game->playerTextures[0]);
   UnloadTexture(game->playerTextures[1]);
 }
-int main(int argc, char **args) {
+
+void drawMenuOptions(Game *game, int centerX, int startY, int fontSize, int buttonHeight, int buttonWidth, int buttonSpacing)
+{
+  if (IsKeyPressed(KEY_DOWN))
+  {
+    game->pauseMenuSelection = (game->pauseMenuSelection + 1 + 3) % 3;
+  }
+  if (IsKeyPressed(KEY_UP))
+  {
+    game->pauseMenuSelection = (game->pauseMenuSelection - 1 + 3) % 3;
+  }
+
+  Color restartColor = game->pauseMenuSelection == 0 ? YELLOW : WHITE;
+  Color controlsColor = game->pauseMenuSelection == 1 ? YELLOW : WHITE;
+  Color endGameColor = game->pauseMenuSelection == 2 ? YELLOW : WHITE;
+
+  DrawRectangle(centerX - buttonWidth / 2, startY, buttonWidth,
+                buttonHeight, LIGHTGRAY);
+  DrawText("Restart", centerX - MeasureText("Restart", fontSize) / 2,
+           startY + (buttonHeight - fontSize) / 2, fontSize,
+           restartColor);
+  DrawRectangle(centerX - buttonWidth / 2,
+                startY + buttonHeight + buttonSpacing, buttonWidth,
+                buttonHeight, LIGHTGRAY);
+  DrawText("Controls", centerX - MeasureText("Controls", fontSize) / 2,
+           startY + buttonHeight + buttonSpacing +
+               (buttonHeight - fontSize) / 2,
+           fontSize, controlsColor);
+  DrawRectangle(centerX - buttonWidth / 2,
+                startY + (buttonHeight + buttonSpacing) * 2, buttonWidth,
+                buttonHeight, LIGHTGRAY);
+  DrawText("End Game", centerX - MeasureText("End Game", fontSize) / 2,
+           startY + (buttonHeight + buttonSpacing) * 2 +
+               (buttonHeight - fontSize) / 2,
+           fontSize, endGameColor);
+}
+
+void handleMenuSelection(Game *game)
+{
+  // Handling Selection
+  if (IsKeyPressed(KEY_ENTER))
+  {
+    // Restart
+    if (game->pauseMenuSelection == 0)
+    {
+      game->paused = false;
+      game->currentWave = 0;
+      game->lastWaveFrame = game->frameCount;
+      game->battery = 0;
+      game->solarCellsCollected = 0;
+      game->enemyCount = 0;
+      game->gameOver = false;
+      game->gameWon = false;
+
+      for (int i = 0; i < game->playerCount; i++)
+      {
+        game->players[i].health = 100;
+        game->players[i].position =
+            (Vector2){0 + i * (20 + game->players[i].size), 0};
+      }
+      for (int i = 0; i < game->maxEnemies; i++)
+      {
+        game->enemies[i].active = false;
+      }
+      for (int i = 0; i < game->maxSolarChargers; i++)
+      {
+        game->solarChargers[i].active = false;
+      }
+      for (int i = 0; i < game->maxSolarCells; i++)
+      {
+        game->solarCells[i].active = false;
+      }
+
+      generateSolarCells(&game);
+    }
+    // Controls
+    else if (game->pauseMenuSelection == 1)
+    {
+      game->showControlsMenu = true;
+      game->showPauseMenu = false;
+    }
+    // End Game
+    else if (game->pauseMenuSelection == 2)
+    {
+      game->isQuitting = true;
+    }
+  }
+}
+
+int main(int argc, char **args)
+{
 
   srand(time(NULL));
   InitWindow(0, 0, "Thread Wars");
   InitAudioDevice();
 
-  if (!IsWindowFullscreen()) {
+  if (!IsWindowFullscreen())
+  {
     ToggleFullscreen();
   }
 
@@ -1060,7 +1266,8 @@ int main(int argc, char **args) {
   SetTargetFPS(game.targetFPS);
 
   // Creating viewport threads
-  for (int i = 0; i < game.playerCount; i++) {
+  for (int i = 0; i < game.playerCount; i++)
+  {
     ViewportThreadArgument *args = malloc(sizeof(ViewportThreadArgument));
     args->viewportIndex = i;
     args->game = &game;
@@ -1070,40 +1277,49 @@ int main(int argc, char **args) {
 
   SetExitKey(KEY_NULL);
 
-  while (!WindowShouldClose() && !game.isQuitting) {
+  while (!WindowShouldClose() && !game.isQuitting)
+  {
 
-    if (!IsSoundPlaying(game.sound->music) && !game.paused) {
+    if (!IsSoundPlaying(game.sound->music) && !game.paused)
+    {
       PlaySound(game.sound->music);
     }
 
-    if (game.frameCount % (game.targetFPS * 5) == 0) {
+    if (game.frameCount % (game.targetFPS * 5) == 0)
+    {
       generateSolarCells(&game);
     }
 
     // Pausing
     if ((IsKeyPressed(KEY_P) || IsKeyPressed(KEY_ESCAPE)) && !game.gameOver &&
-        !game.gameWon) {
+        !game.gameWon)
+    {
       game.paused = !game.paused;
-      if (game.paused) {
+      if (game.paused)
+      {
         StopSound(game.sound->music);
         game.showPauseMenu = game.paused;
         game.showControlsMenu = false;
         game.pauseMenuSelection = 0;
-      } else {
+      }
+      else
+      {
 
         PlaySound(game.sound->music);
       }
     }
 
     // Adding enemies
-    if (IsKeyPressed(KEY_BACKSPACE)) {
+    if (IsKeyPressed(KEY_BACKSPACE))
+    {
       addEnemies(&game, 5);
     }
 
     handleGameOver(&game);
 
     // Update
-    if (!game.paused) {
+    if (!game.paused)
+    {
       generateEnemies(&game);
 
       updateMessage(&game);
@@ -1117,8 +1333,10 @@ int main(int argc, char **args) {
     draw(&game);
 
     // pause menu
-    if (game.paused && !game.gameOver && !game.gameWon) {
-      if (game.showControlsMenu) {
+    if (game.paused && !game.gameOver && !game.gameWon)
+    {
+      if (game.showControlsMenu)
+      {
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
                       Fade(BLACK, 0.7));
         int fontSize = GetScreenHeight() * 0.04;
@@ -1163,10 +1381,13 @@ int main(int argc, char **args) {
                  centerX -
                      MeasureText("Press BackSpace to go back", fontSize) / 2,
                  GetScreenHeight() * 0.85, fontSize, YELLOW);
-        if (IsKeyPressed(KEY_BACKSPACE)) {
+        if (IsKeyPressed(KEY_BACKSPACE))
+        {
           game.showControlsMenu = false;
         }
-      } else {
+      }
+      else
+      {
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
                       Fade(BLACK, 0.7));
 
@@ -1182,94 +1403,84 @@ int main(int argc, char **args) {
         DrawText("PAUSED", centerX - MeasureText("Paused", fontSize) / 2,
                  startY - fontSize - buttonSpacing, fontSize, WHITE);
 
-        if (IsKeyPressed(KEY_DOWN)) {
-          game.pauseMenuSelection = (game.pauseMenuSelection + 1 + 3) % 3;
-        }
-        if (IsKeyPressed(KEY_UP)) {
-          game.pauseMenuSelection = (game.pauseMenuSelection - 1 + 3) % 3;
-        }
-
-        Color restartColor = game.pauseMenuSelection == 0 ? YELLOW : WHITE;
-        Color controlsColor = game.pauseMenuSelection == 1 ? YELLOW : WHITE;
-        Color endGameColor = game.pauseMenuSelection == 2 ? YELLOW : WHITE;
-
-        DrawRectangle(centerX - buttonWidth / 2, startY, buttonWidth,
-                      buttonHeight, LIGHTGRAY);
-        DrawText("Restart", centerX - MeasureText("Restart", fontSize) / 2,
-                 startY + (buttonHeight - fontSize) / 2, fontSize,
-                 restartColor);
-        DrawRectangle(centerX - buttonWidth / 2,
-                      startY + buttonHeight + buttonSpacing, buttonWidth,
-                      buttonHeight, LIGHTGRAY);
-        DrawText("Controls", centerX - MeasureText("Controls", fontSize) / 2,
-                 startY + buttonHeight + buttonSpacing +
-                     (buttonHeight - fontSize) / 2,
-                 fontSize, controlsColor);
-        DrawRectangle(centerX - buttonWidth / 2,
-                      startY + (buttonHeight + buttonSpacing) * 2, buttonWidth,
-                      buttonHeight, LIGHTGRAY);
-        DrawText("End Game", centerX - MeasureText("End Game", fontSize) / 2,
-                 startY + (buttonHeight + buttonSpacing) * 2 +
-                     (buttonHeight - fontSize) / 2,
-                 fontSize, endGameColor);
-
-        // Handling Selection
-        if (IsKeyPressed(KEY_ENTER)) {
-          // Restart
-          if (game.pauseMenuSelection == 0) {
-            game.paused = false;
-            game.currentWave = 0;
-            game.lastWaveFrame = game.frameCount;
-            game.battery = 0;
-            game.solarCellsCollected = 0;
-            game.enemyCount = 0;
-
-            for (int i = 0; i < game.playerCount; i++) {
-              game.players[i].health = 100;
-              game.players[i].position =
-                  (Vector2){0 + i * (20 + game.players[i].size), 0};
-            }
-            for (int i = 0; i < game.maxEnemies; i++) {
-              game.enemies[i].active = false;
-            }
-            for (int i = 0; i < game.maxSolarChargers; i++) {
-              game.solarChargers[i].active = false;
-            }
-            for (int i = 0; i < game.maxSolarCells; i++) {
-              game.solarCells[i].active = false;
-            }
-
-            generateSolarCells(&game);
-          }
-          // Controls
-          else if (game.pauseMenuSelection == 1) {
-            game.showControlsMenu = true;
-            game.showPauseMenu = false;
-          }
-          // End Game
-          else if (game.pauseMenuSelection == 2) {
-            game.isQuitting = true;
-          }
-        }
+        drawMenuOptions(&game, centerX, startY, fontSize, buttonHeight, buttonWidth, buttonSpacing);
+        handleMenuSelection(&game);
       }
     }
 
-    if (game.gameOver) {
-      DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
-      char gameOverText[] = "GAME OVER :(";
-      int fontSize = GetScreenHeight() * 0.05;
-      DrawText(gameOverText,
-               GetScreenWidth() / 2 - MeasureText(gameOverText, fontSize) / 2,
-               GetScreenHeight() / 2 - fontSize / 2, fontSize, WHITE);
-    }
+    if (game.gameOver || game.gameWon)
+    {
+      DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.7));
+      char titleText[32];
+      strcpy(titleText, game.gameOver ? "Game Over :(" : "YOU SURVIVED :)");
 
-    if (game.gameWon) {
-      DrawRectangle(0, 0, GetScreenWidth(), GetScreenWidth(), Fade(BLACK, 0.7));
-      char wonText[] = "YOU SURVIVED :)";
+      int titleSize = GetScreenHeight() * 0.05;
+
+      char gameOverText[] = "GAME OVER :(";
+      DrawText(gameOverText,
+               GetScreenWidth() / 2 - MeasureText(titleText, titleSize) / 2,
+               GetScreenHeight() * 2, titleSize, WHITE);
       int fontSize = GetScreenHeight() * 0.05;
-      DrawText(wonText,
-               GetScreenWidth() / 2 - MeasureText(wonText, fontSize) / 2,
-               GetScreenHeight() / 2 - fontSize / 2, fontSize, WHITE);
+      int buttonHeight = GetScreenHeight() * 0.08;
+      int buttonWidth = GetScreenWidth() * 0.3;
+      int buttonSpacing = GetScreenHeight() * 0.02;
+
+      int centerX = GetScreenWidth() / 2;
+      int startY = GetScreenHeight() / 2 - (buttonHeight * 3 + buttonSpacing * 2) / 2;
+      drawMenuOptions(&game, centerX, startY, fontSize, buttonHeight, buttonWidth, buttonSpacing);
+      handleMenuSelection(&game);
+
+      if (game.showControlsMenu)
+      {
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
+                      Fade(BLACK, 0.7));
+        int fontSize = GetScreenHeight() * 0.04;
+        int titleSize = GetScreenHeight() * 0.05;
+        int centerX = GetScreenWidth() / 2;
+
+        DrawText("CONTROLS", centerX - MeasureText("CONTROLS", titleSize) / 2,
+                 GetScreenHeight() * 2, titleSize, WHITE);
+
+        // Player1
+        DrawText("PLAYER 1:", centerX - MeasureText("PLAYER 1:", fontSize) / 2,
+                 GetScreenHeight() * 0.3, fontSize, YELLOW);
+        DrawText("WASD - Move",
+                 centerX - MeasureText("WASD - Move", fontSize) / 2,
+                 GetScreenHeight() * 0.35, fontSize, YELLOW);
+        DrawText("SPACE - Shoot",
+                 centerX - MeasureText("SPACE - Shoot", fontSize) / 2,
+                 GetScreenHeight() * 0.4, fontSize, YELLOW);
+        DrawText("1/2 - Build Solar (Small/Large)",
+                 centerX -
+                     MeasureText("1/2 - Build Solar (Small/Large)", fontSize) /
+                         2,
+                 GetScreenHeight() * 0.45, fontSize, YELLOW);
+
+        // Player2
+        DrawText("PLAYER 2:", centerX - MeasureText("PLAYER 2:", fontSize) / 2,
+                 GetScreenHeight() * 0.55, fontSize, YELLOW);
+        DrawText("ARROWS - Move",
+                 centerX - MeasureText("ARROWS - Move", fontSize) / 2,
+                 GetScreenHeight() * 0.60, fontSize, YELLOW);
+        DrawText("ENTER - Shoot",
+                 centerX - MeasureText("ENTER - Shoot", fontSize) / 2,
+                 GetScreenHeight() * 0.65, fontSize, YELLOW);
+        DrawText("9/0 - Build Solar (Small/Large)",
+                 centerX -
+                     MeasureText("9/0 - Build Solar (Small/Large)", fontSize) /
+                         2,
+                 GetScreenHeight() * 0.70, fontSize, YELLOW);
+
+        // Back
+        DrawText("Press BackSpace to go back",
+                 centerX -
+                     MeasureText("Press BackSpace to go back", fontSize) / 2,
+                 GetScreenHeight() * 0.85, fontSize, YELLOW);
+        if (IsKeyPressed(KEY_BACKSPACE))
+        {
+          game.showControlsMenu = false;
+        }
+      }
     }
 
     EndDrawing();
