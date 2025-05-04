@@ -206,32 +206,6 @@ void buildSolarCharger(Game *game, Vector2 position, int size)
   }
 }
 
-// void initializePlayers(Game *game)
-// {
-//   Color playerColors[] = {YELLOW, BLUE, GREEN, PINK};
-
-//   game->players = (Player *)calloc(sizeof(Player), game->playerCount);
-
-//   for (int i = 0; i < game->playerCount; i++)
-//   {
-//     game->players[i].size = 50;
-//     game->players[i].speed = (float)600 / game->targetFPS;
-//     game->players[i].health = 100;
-//     game->players[i].color = playerColors[i % game->playerCount];
-//     game->players[i].position =
-//         (Vector2){0 + i * (20 + game->players[i].size), 0};
-
-//     // Initializing mutexes
-//     for (int j = 0; j < game->playerCount; j++)
-//     {
-//       if (pthread_mutex_init(&game->players[j].mutex, NULL))
-//       {
-//         exit(0);
-//       };
-//     }
-//   }
-// }
-
 // In initializePlayers function:
 void initializePlayers(Game *game)
 {
@@ -1414,12 +1388,12 @@ int main(int argc, char **args)
       char titleText[32];
       strcpy(titleText, game.gameOver ? "Game Over :(" : "YOU SURVIVED :)");
 
-      int titleSize = GetScreenHeight() * 0.05;
+      int titleSize = GetScreenHeight() * 0.1;
 
       char gameOverText[] = "GAME OVER :(";
       DrawText(gameOverText,
                GetScreenWidth() / 2 - MeasureText(titleText, titleSize) / 2,
-               GetScreenHeight() * 2, titleSize, WHITE);
+               GetScreenHeight() * 0.2, titleSize, WHITE);
       int fontSize = GetScreenHeight() * 0.05;
       int buttonHeight = GetScreenHeight() * 0.08;
       int buttonWidth = GetScreenWidth() * 0.3;
@@ -1429,7 +1403,7 @@ int main(int argc, char **args)
       int startY = GetScreenHeight() / 2 - (buttonHeight * 3 + buttonSpacing * 2) / 2;
       drawMenuOptions(&game, centerX, startY, fontSize, buttonHeight, buttonWidth, buttonSpacing);
       handleMenuSelection(&game);
-
+      
       if (game.showControlsMenu)
       {
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(),
