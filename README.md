@@ -1,6 +1,4 @@
 # Thread Wars
-
-## About
 Two players stranded in the middle of nowhere with electric powered guns, connected to a single battery. Collect solar cells and build solar panels to charge your guns and defend against the incoming wave of zombies!
 
 ## Technical Details
